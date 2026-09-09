@@ -1,0 +1,10 @@
+{
+  "description": "Interactive portfolio template featuring a Chelsea blue theme, a playable game with selectable levels, and customizable 3D logos for personal branding.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

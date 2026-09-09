@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --color-chelsea: #2B5F8A;
+  --color-chelsea-dark: #1a3f5e;
+  --color-chelsea-light: #4a87bc;
+  --color-chelsea-pale: #d6e8f5;
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Outfit', sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2B5F8A transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2B5F8A; border-radius: 3px; }
+
+html,
+body,
+#root {
+  height: 100%;
+}
