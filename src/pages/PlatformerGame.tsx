@@ -6,7 +6,7 @@ const GRAV = 0.55;
 const JUMP_V = -11.5;
 const SPD = 4.5;
 const PW = 11;   // player half-width
-const PH = 50;   // player height (feet to top)
+const PH = 65;   // player height (feet to top): 20 head + 6 gap + 14 torso + 25 legs
 
 type PlatType = "ground" | "block" | "pipe";
 interface Plat { x: number; y: number; w: number; h: number; t: PlatType }
@@ -334,7 +334,8 @@ function drawStickman(
   const HY = y - PH + HR;       // head center
   const neckY = HY + HR + 2;
   const shoulderY = neckY + 4;
-  const hipY = shoulderY + 18;
+  const hipY = shoulderY + 14;
+  const hipHalf = 3.5;          // half the hip width, so the legs start apart
 
   ctx.save();
   ctx.lineCap = "round";
@@ -380,40 +381,50 @@ function drawStickman(
   ctx.moveTo(x, neckY); ctx.lineTo(x, hipY);
   ctx.stroke();
 
-  // ── Arms ── (swing while walking, raised while falling)
+  // ── Arms ── (swing while walking, raised while falling, down-and-out when idle)
+  const idle = onGround && !moving;
+  const armY = shoulderY + 1;
   const swing = moving && onGround ? Math.sin(walkF * 0.32) * 18 : vy < -2 ? 22 : 0;
+  const armOut = idle ? 11 : 14;
+  const armDrop = idle ? 13 : 0;
+  ctx.lineWidth = idle ? 3 : 2.5;
+
+  ctx.beginPath();
+  ctx.moveTo(x, armY);
+  ctx.lineTo(x + armOut * facing, armY + armDrop + swing);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x, armY);
+  ctx.lineTo(x - armOut * facing, armY + armDrop - swing);
+  ctx.stroke();
+
+  // ── Legs ── (hip → knee bent outward → ankle, with a flat foot)
+  const legSwing = moving && onGround ? Math.sin(walkF * 0.32) * 11 : 0;
+  const airSpread = !onGround ? 6 : 0;
+  const kneeY = hipY + 13;
+  const ankleY = y - 2;
+  const footLen = 5;
   ctx.lineWidth = 2.5;
 
-  ctx.beginPath();
-  ctx.moveTo(x, shoulderY + 5);
-  ctx.lineTo(x + 14 * facing, shoulderY + 5 + swing);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(x, shoulderY + 5);
-  ctx.lineTo(x - 14 * facing, shoulderY + 5 - swing);
-  ctx.stroke();
-
-  // ── Legs ── (alternate while walking, spread in air)
-  const legSwing = moving && onGround ? Math.sin(walkF * 0.32) * 13 : 0;
-  const airSpread = !onGround ? 10 : 0;
-
   // Right leg
-  const rkx = x + 9;
-  const rky = hipY + 10 + legSwing + airSpread;
+  const rkx = x + hipHalf + 4 + airSpread;
+  const rax = rkx - 1.5 + legSwing + airSpread;
   ctx.beginPath();
-  ctx.moveTo(x, hipY);
-  ctx.lineTo(rkx, rky);
-  ctx.lineTo(rkx + (legSwing > 0 ? 5 : -3), y - 1);
+  ctx.moveTo(x + hipHalf, hipY);
+  ctx.lineTo(rkx, kneeY + legSwing * 0.3);
+  ctx.lineTo(rax, ankleY);
+  ctx.lineTo(rax + footLen * facing, ankleY);
   ctx.stroke();
 
   // Left leg
-  const lkx = x - 9;
-  const lky = hipY + 10 - legSwing + airSpread;
+  const lkx = x - hipHalf - 4 - airSpread;
+  const lax = lkx + 1.5 + legSwing - airSpread;
   ctx.beginPath();
-  ctx.moveTo(x, hipY);
-  ctx.lineTo(lkx, lky);
-  ctx.lineTo(lkx + (legSwing < 0 ? -5 : 3), y - 1);
+  ctx.moveTo(x - hipHalf, hipY);
+  ctx.lineTo(lkx, kneeY - legSwing * 0.3);
+  ctx.lineTo(lax, ankleY);
+  ctx.lineTo(lax + footLen * facing, ankleY);
   ctx.stroke();
 
   ctx.restore();
