@@ -30,6 +30,7 @@ export default function App() {
           onBack={() => setPage("levels")} 
           levelId={selectedLevelId}
           onLevelComplete={handleLevelComplete}
+          onViewAchievements={() => setPage("home")}
         />
       )}
     </div>

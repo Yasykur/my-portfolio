@@ -192,6 +192,7 @@ interface GS {
   dead: boolean;
   won: boolean;
   wonT: number;
+  insufficientStars: boolean;
 }
 
 function freshState(level: LevelData): GS {
@@ -200,7 +201,7 @@ function freshState(level: LevelData): GS {
     onGround: false, facing: 1, walkF: 0, camX: 0,
     coins: level.coins.map(c => ({ ...c })),
     score: 0, keys: new Set(),
-    dead: false, won: false, wonT: 0,
+    dead: false, won: false, wonT: 0, insufficientStars: false,
   };
 }
 
@@ -381,41 +382,47 @@ function drawStickman(
   ctx.stroke();
 
   // ── Arms ── (idle: down at sides, swing while walking, raised while falling)
-  let armAngle = 0;
-  if (moving && onGround) {
-    armAngle = Math.sin(walkF * 0.32) * 0.4; // swing while walking
-  } else if (vy < -2) {
-    armAngle = -0.8; // raised while falling
-  } else {
-    armAngle = 0.3; // relaxed idle: slightly bent down
-  }
-  
-  const armLen = 18;
   ctx.lineWidth = 2.5;
 
-  // Right arm
-  const rax = x + Math.cos(armAngle * facing) * armLen;
-  const ray = shoulderY + 5 + Math.sin(armAngle * facing) * armLen;
-  ctx.beginPath();
-  ctx.moveTo(x, shoulderY + 5);
-  ctx.lineTo(rax, ray);
-  ctx.stroke();
-
-  // Left arm
-  const lax = x + Math.cos(-armAngle * facing) * armLen;
-  const lay = shoulderY + 5 + Math.sin(-armAngle * facing) * armLen;
-  ctx.beginPath();
-  ctx.moveTo(x, shoulderY + 5);
-  ctx.lineTo(lax, lay);
-  ctx.stroke();
+  if (moving && onGround) {
+    // Walking swing
+    const swing = Math.sin(walkF * 0.32) * 12;
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY + 5);
+    ctx.lineTo(x + 14 * facing, shoulderY + 5 + swing);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY + 5);
+    ctx.lineTo(x - 14 * facing, shoulderY + 5 - swing);
+    ctx.stroke();
+  } else if (vy < -2) {
+    // Falling - arms raised
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY + 5);
+    ctx.lineTo(x + 12 * facing, shoulderY - 15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY + 5);
+    ctx.lineTo(x - 12 * facing, shoulderY - 15);
+    ctx.stroke();
+  } else {
+    // Idle - arms relaxed at sides
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY + 5);
+    ctx.lineTo(x + 8, shoulderY + 25);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderY + 5);
+    ctx.lineTo(x - 8, shoulderY + 25);
+    ctx.stroke();
+  }
 
   // ── Legs ── (idle: together, alternate while walking, spread in air)
   const legSwing = moving && onGround ? Math.sin(walkF * 0.32) * 13 : 0;
   const airSpread = !onGround ? 10 : 0;
-  const idleSpread = !moving && onGround ? 2 : 0; // slight spread for natural idle
 
   // Right leg
-  const rkx = x + 9 + idleSpread;
+  const rkx = x + 9 + (moving && onGround ? 0 : 0);
   const rky = hipY + 10 + legSwing + airSpread;
   ctx.beginPath();
   ctx.moveTo(x, hipY);
@@ -424,7 +431,7 @@ function drawStickman(
   ctx.stroke();
 
   // Left leg
-  const lkx = x - 9 - idleSpread;
+  const lkx = x - 9 - (moving && onGround ? 0 : 0);
   const lky = hipY + 10 - legSwing + airSpread;
   ctx.beginPath();
   ctx.moveTo(x, hipY);
@@ -442,6 +449,7 @@ function drawHUD(
   total: number,
   dead: boolean,
   won: boolean,
+  insufficientStars: boolean,
   wonT: number,
   level: LevelData,
 ) {
@@ -455,6 +463,22 @@ function drawHUD(
     ctx.font = "16px 'Outfit', sans-serif";
     ctx.fillStyle = "#555";
     ctx.fillText("Press  R  to try again", CW / 2, CH / 2 + 18);
+    return;
+  }
+
+  if (insufficientStars) {
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+    ctx.font = "bold 42px 'Playfair Display', Georgia, serif";
+    ctx.fillText("NOT ENOUGH STARS", CW / 2, CH / 2 - 38);
+    ctx.font = "18px 'Outfit', sans-serif";
+    ctx.fillStyle = "#555";
+    ctx.fillText(`Collected ${collected}/${total} stars. Need at least 8 to complete.`, CW / 2, CH / 2 + 10);
+    ctx.font = "16px 'Outfit', sans-serif";
+    ctx.fillStyle = "#333";
+    ctx.fillText("Press  R  to try again", CW / 2, CH / 2 + 46);
     return;
   }
 
@@ -497,12 +521,13 @@ function drawHUD(
 
 /* ─── main component ─────────────────────────────────── */
 
-export default function PlatformerGame({ onBack, levelId, onLevelComplete }: { onBack: () => void; levelId: number; onLevelComplete: (levelId: number) => void }) {
+export default function PlatformerGame({ onBack, levelId, onLevelComplete, onViewAchievements }: { onBack: () => void; levelId: number; onLevelComplete: (levelId: number) => void; onViewAchievements?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
   const gsRef = useRef<GS>(freshState(level));
   const rafRef = useRef(0);
   const [score, setScore] = useState(0);
+  const [won, setWon] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -591,9 +616,14 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete }: { o
 
       // ── Death / win ──
       if (g.py > CH + 80) g.dead = true;
-      if (g.px > level.winX) {
-        g.won = true;
-        onLevelComplete(levelId);
+      if (g.px > level.winX && !g.won) {
+        const collectedStars = g.coins.filter(c => c.col).length;
+        if (collectedStars >= 8) {
+          g.won = true;
+          onLevelComplete(levelId);
+        } else {
+          g.insufficientStars = true; // Flag to show retry message
+        }
       }
 
       // ── Camera ──
@@ -639,13 +669,14 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete }: { o
       ctx.restore();
 
       const collected = g.coins.filter(c => c.col).length;
-      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.won, g.wonT, level);
+      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.won, g.insufficientStars, g.wonT, level);
     }
 
     function loop() {
       tick();
       draw();
       setScore(gsRef.current.score);
+      setWon(gsRef.current.won);
       rafRef.current = requestAnimationFrame(loop);
     }
 
@@ -656,7 +687,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete }: { o
       window.removeEventListener("keydown", onKD);
       window.removeEventListener("keyup", onKU);
     };
-  }, [level, onLevelComplete]);
+  }, [level, onLevelComplete, onViewAchievements]);
 
   return (
     <div style={{
@@ -697,6 +728,29 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete }: { o
           <span>Press R to restart after dying</span>
           <span style={{ color: "#1E6FBF", fontWeight: 600 }}>Score: {score}</span>
         </div>
+
+        {/* View Achievements button - shows after winning */}
+        {won && onViewAchievements && (
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <button
+              onClick={onViewAchievements}
+              style={{
+                padding: "12px 32px",
+                background: "#1E6FBF",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 15,
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 4px 16px rgba(30,111,191,0.35)",
+                transition: "all 0.2s",
+              }}
+            >
+              View Achievements
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
