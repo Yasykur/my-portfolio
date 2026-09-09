@@ -278,10 +278,12 @@ function LevelCard({ level, selected, onSelect, onStart, achievements }: {
 function LevelStarted({ level, onBack, onBegin }: { level: typeof LEVELS[0]; onBack: () => void; onBegin: () => void }) {
   return (
     <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+      position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+      display: "flex", alignItems: "center", justifyContent: "center",
       background: "#f3f7fc", fontFamily: "'Outfit', sans-serif", padding: 32,
+      zIndex: 1000,
     }}>
-      <div style={{ textAlign: "center", maxWidth: 540 }}>
+      <div style={{ textAlign: "center", maxWidth: 540, width: "100%" }}>
         <div style={{
           width: 96, height: 96, borderRadius: "50%",
           background: `radial-gradient(circle at 35% 30%, ${CL}, ${CD})`,

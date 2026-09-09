@@ -4,13 +4,14 @@ const CW = 800;
 const CH = 480;
 const GRAV = 0.45; // Reduced for slower rise
 const JUMP_V = -10; // Slightly reduced jump velocity
-const SPD = 4.5;
+const SPD = 3.8; // Reduced by ~15% for more controlled movement
 const PW = 11;   // player half-width
 const PH = 65;   // player height (feet to top)
 
 type PlatType = "ground" | "block" | "pipe";
 interface Plat { x: number; y: number; w: number; h: number; t: PlatType }
 interface Coin { x: number; y: number; col: boolean }
+interface Spike { x: number; y: number; w: number; h: number }
 
 interface LevelData {
   id: number;
@@ -18,6 +19,7 @@ interface LevelData {
   role: string;
   platforms: Plat[];
   coins: Coin[];
+  spikes: Spike[];
   winX: number;
   flagX: number;
   groundY: number;
@@ -56,6 +58,15 @@ const LEVELS: LevelData[] = [
       { x: 1050, y: 374, w: 48,  h: 50, t: "pipe" },
       { x: 1640, y: 376, w: 48,  h: 48, t: "pipe" },
     ],
+    spikes: [
+      { x: 490, y: 260, w: 36, h: 18 },
+      { x: 800, y: 402, w: 48, h: 22 },
+      { x: 930, y: 290, w: 36, h: 20 },
+      { x: 1180, y: 400, w: 48, h: 24 },
+      { x: 1350, y: 405, w: 36, h: 19 },
+      { x: 1580, y: 403, w: 48, h: 21 },
+      { x: 1800, y: 404, w: 36, h: 20 },
+    ],
     coins: [
       { x: 285, y: 310, col: false },
       { x: 465, y: 244, col: false },
@@ -72,15 +83,15 @@ const LEVELS: LevelData[] = [
     flagX: 2150,
     groundY: 424,
     theme: {
-      bg: "#fff",
-      skyDot: "#ececec",
-      ground: "#111",
-      groundTop: "#000",
-      groundLine: "#000",
-      block: "#fff",
-      blockStroke: "#000",
-      pipe: "#fff",
-      pipeStroke: "#000",
+      bg: "#fffbeb",
+      skyDot: "#fef3c7",
+      ground: "#92400e",
+      groundTop: "#78350f",
+      groundLine: "#451a03",
+      block: "#fef3c7",
+      blockStroke: "#92400e",
+      pipe: "#fcd34d",
+      pipeStroke: "#92400e",
     },
   },
   {
@@ -103,6 +114,7 @@ const LEVELS: LevelData[] = [
       { x: 1020, y: 382, w: 48,  h: 42, t: "pipe" },
       { x: 1600, y: 384, w: 48,  h: 40, t: "pipe" },
     ],
+    spikes: [],
     coins: [
       { x: 245, y: 326, col: false },
       { x: 420, y: 266, col: false },
@@ -150,6 +162,7 @@ const LEVELS: LevelData[] = [
       { x: 1060, y: 378, w: 48,  h: 46, t: "pipe" },
       { x: 1620, y: 380, w: 48,  h: 44, t: "pipe" },
     ],
+    spikes: [],
     coins: [
       { x: 275, y: 316, col: false },
       { x: 440, y: 256, col: false },
@@ -204,7 +217,7 @@ function freshState(level: LevelData): GS {
     coins: level.coins.map(c => ({ ...c })),
     score: 0, keys: new Set(),
     dead: false, won: false, wonT: 0, insufficientStars: false,
-    timeRemaining: 30, timeUp: false,
+    timeRemaining: 60, timeUp: false,
   };
 }
 
@@ -297,6 +310,33 @@ function drawCoin(ctx: CanvasRenderingContext2D, x: number, y: number) {
   ctx.restore();
 }
 
+function drawSpike(ctx: CanvasRenderingContext2D, spike: Spike) {
+  ctx.save();
+  ctx.fillStyle = "#444";
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 2;
+  
+  // Draw jagged sawtooth pattern with 3-4 sharp points
+  const numPoints = Math.floor(spike.w / 12); // 3-4 points based on width
+  const pointWidth = spike.w / numPoints;
+  
+  for (let i = 0; i < numPoints; i++) {
+    const startX = spike.x + i * pointWidth;
+    const midX = startX + pointWidth / 2;
+    const endX = startX + pointWidth;
+    
+    ctx.beginPath();
+    ctx.moveTo(startX, spike.y + spike.h);
+    ctx.lineTo(midX, spike.y);
+    ctx.lineTo(endX, spike.y + spike.h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  
+  ctx.restore();
+}
+
 function drawFlag(ctx: CanvasRenderingContext2D, x: number, groundY: number) {
   // Pole
   ctx.strokeStyle = "#000";
@@ -333,6 +373,8 @@ function drawStickman(
   onGround: boolean,
   moving: boolean,
   vy: number,
+  levelId: number,
+  groundY: number,
 ) {
   const HR = 10;
   const HY = y - PH + HR;       // head center
@@ -344,10 +386,15 @@ function drawStickman(
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // ── Shadow ──
-  ctx.fillStyle = "rgba(0,0,0,0.1)";
+  // ── Shadow ── (always at ground level, anchored to floor)
+  // Shadow stays at fixed ground level, never moves up with character
+  const shadowY = groundY + 2; // always at ground level
+  const shadowSize = onGround ? 13 : Math.max(6, 11 - Math.abs(vy) * 0.25); // shrink when jumping
+  const shadowOpacity = onGround ? 0.1 : Math.max(0.07, 0.09 - Math.abs(vy) * 0.005); // fixed minimum while airborne
+  
+  ctx.fillStyle = `rgba(0,0,0,${shadowOpacity})`;
   ctx.beginPath();
-  ctx.ellipse(x, y + 2, 13, 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, shadowY, shadowSize, shadowSize * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // ── Head ── (simple circle outline)
@@ -357,12 +404,15 @@ function drawStickman(
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  // ── Glasses ── (black rectangular frames only)
+  // ── Glasses ── (black rectangular frames only, flip based on facing)
   const GW = 8, GH = 6;
   const GY = HY - 1.5;
   const bridgeGap = 3;
-  const lx = x - bridgeGap / 2 - GW;
-  const rx = x + bridgeGap / 2;
+  
+  // Adjust glasses position based on facing direction
+  const glassesOffset = facing === 1 ? 0 : 1;
+  const lx = x - bridgeGap / 2 - GW + glassesOffset;
+  const rx = x + bridgeGap / 2 + glassesOffset;
 
   ctx.strokeStyle = "#000";
   ctx.lineWidth = 2.5;
@@ -377,6 +427,55 @@ function drawStickman(
   ctx.lineTo(rx, GY);
   ctx.stroke();
 
+  // ── Graduation Cap (Level 1 only) ──
+  if (levelId === 1) {
+    const capWidth = 20;
+    const capHeight = 6;
+    const capY = HY - HR - capHeight - 2;
+    
+    // Clear square/diamond mortarboard top with sharp corners
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, capY - 3); // top point
+    ctx.lineTo(x + capWidth / 2, capY + capHeight / 2); // right point
+    ctx.lineTo(x, capY + capHeight + 2); // bottom point
+    ctx.lineTo(x - capWidth / 2, capY + capHeight / 2); // left point
+    ctx.closePath();
+    ctx.stroke();
+    
+    // Clear brim/skull cap outline
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x - capWidth / 2 + 2, capY + capHeight / 2);
+    ctx.lineTo(x - capWidth / 2 + 2, capY + capHeight + 4);
+    ctx.lineTo(x + capWidth / 2 - 2, capY + capHeight + 4);
+    ctx.lineTo(x + capWidth / 2 - 2, capY + capHeight / 2);
+    ctx.stroke();
+    
+    // Small clear button in center
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(x, capY + capHeight / 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Clear tassel hanging from the side facing direction
+    const tasselSide = facing === 1 ? 1 : -1;
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + (capWidth / 2) * tasselSide, capY + capHeight / 2);
+    ctx.lineTo(x + (capWidth / 2 + 7) * tasselSide, capY + capHeight / 2 + 14);
+    ctx.stroke();
+    
+    // Clear circle bead at tassel end
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.arc(x + (capWidth / 2 + 7) * tasselSide, capY + capHeight / 2 + 16, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // ── Body ──
   ctx.strokeStyle = "#000";
   ctx.lineWidth = 2.5;
@@ -384,63 +483,102 @@ function drawStickman(
   ctx.moveTo(x, neckY); ctx.lineTo(x, hipY);
   ctx.stroke();
 
+  // ── Animation parameters ──
+  const walkCycle = moving && onGround ? walkF * 0.28 : 0;
+
+  // ── Legs ── (idle: together, alternate while walking, spread in air)
+  // Use smoother sine-wave motion for natural walk cycle
+  const legSwing = Math.sin(walkCycle) * 14;
+  const legPhase = Math.sin(walkCycle + Math.PI / 2) * 8; // phase-shifted for knee bend
+  const airSpread = !onGround ? 16 : 0;
+  const jumpLegExtension = !onGround && vy < 0 ? 8 : 0; // extend legs when jumping up
+
+  // Right leg (increased separation, keep facing for proper flip)
+  const rightLegBase = 12 * facing; // increased base separation
+  const rFootX = x + rightLegBase + legSwing * 0.4 * facing - jumpLegExtension * 0.3;
+  const rKneeX = x + rightLegBase * 0.35 + legPhase * 0.15 * facing;
+  const rKneeY = hipY + 12 + legPhase * 6 - jumpLegExtension * 0.5; // signed knee bend
+  const rFootY = hipY + 20 + airSpread - jumpLegExtension;
+  
+  ctx.lineWidth = 3; // increased leg thickness
+  ctx.beginPath();
+  ctx.moveTo(x, hipY);
+  ctx.lineTo(rKneeX, rKneeY);
+  ctx.lineTo(rFootX, rFootY);
+  ctx.stroke();
+  
+  // Right foot (flat perpendicular line, 5px)
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(rFootX - 2.5, rFootY);
+  ctx.lineTo(rFootX + 2.5, rFootY);
+  ctx.stroke();
+
+  // Left leg (increased separation, keep facing for proper flip)
+  const leftLegBase = -12 * facing; // increased base separation
+  const lFootX = x + leftLegBase - legSwing * 0.4 * facing - jumpLegExtension * 0.3;
+  const lKneeX = x + leftLegBase * 0.35 - legPhase * 0.15 * facing;
+  const lKneeY = hipY + 12 - legPhase * 6 - jumpLegExtension * 0.5; // opposite signed knee bend
+  const lFootY = hipY + 20 + airSpread - jumpLegExtension;
+  
+  ctx.lineWidth = 3; // increased leg thickness
+  ctx.beginPath();
+  ctx.moveTo(x, hipY);
+  ctx.lineTo(lKneeX, lKneeY);
+  ctx.lineTo(lFootX, lFootY);
+  ctx.stroke();
+  
+  // Left foot (flat perpendicular line, 5px)
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(lFootX - 2.5, lFootY);
+  ctx.lineTo(lFootX + 2.5, lFootY);
+  ctx.stroke();
+  
+  ctx.lineWidth = 2.5; // reset line width for other elements
+
   // ── Arms ── (idle: down at sides, swing while walking, raised while falling)
   ctx.lineWidth = 2.5;
 
   if (moving && onGround) {
-    // Walking swing
-    const swing = Math.sin(walkF * 0.32) * 12;
+    // Walking swing - properly flip based on facing with smoother motion
+    const swing = Math.sin(walkCycle) * 12;
+    const rightArmX = x + 12 * facing;
+    const leftArmX = x - 12 * facing;
+    
     ctx.beginPath();
     ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x + 14 * facing, shoulderY + 5 + swing);
+    ctx.lineTo(rightArmX, shoulderY + 5 + swing);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x - 14 * facing, shoulderY + 5 - swing);
+    ctx.lineTo(leftArmX, shoulderY + 5 - swing);
     ctx.stroke();
-  } else if (vy < -2) {
-    // Falling - arms raised
+  } else if (!onGround) {
+    // Jumping/falling - arms raised with different pose for rise vs fall
+    const armAngle = vy < 0 ? -20 : -10; // higher arms when rising
+    const armSpread = vy < 0 ? 14 : 10; // wider spread when rising
     ctx.beginPath();
     ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x + 12 * facing, shoulderY - 15);
+    ctx.lineTo(x + armSpread * facing, shoulderY + armAngle);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x - 12 * facing, shoulderY - 15);
+    ctx.lineTo(x - armSpread * facing, shoulderY + armAngle);
     ctx.stroke();
   } else {
-    // Idle - arms relaxed at sides
+    // Idle - arms relaxed at sides (more visible)
+    ctx.lineWidth = 3; // increased thickness for visibility
     ctx.beginPath();
     ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x + 8, shoulderY + 25);
+    ctx.lineTo(x + 10, shoulderY + 28); // extended length for visibility
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x - 8, shoulderY + 25);
+    ctx.lineTo(x - 10, shoulderY + 28); // extended length for visibility
     ctx.stroke();
+    ctx.lineWidth = 2.5; // reset line width
   }
-
-  // ── Legs ── (idle: together, alternate while walking, spread in air)
-  const legSwing = moving && onGround ? Math.sin(walkF * 0.32) * 13 : 0;
-  const airSpread = !onGround ? 10 : 0;
-
-  // Right leg
-  const rkx = x + 9 + (moving && onGround ? 0 : 0);
-  const rky = hipY + 10 + legSwing + airSpread;
-  ctx.beginPath();
-  ctx.moveTo(x, hipY);
-  ctx.lineTo(rkx, rky);
-  ctx.lineTo(rkx + (legSwing > 0 ? 5 : -3), y - 1);
-  ctx.stroke();
-
-  // Left leg
-  const lkx = x - 9 - (moving && onGround ? 0 : 0);
-  const lky = hipY + 10 - legSwing + airSpread;
-  ctx.beginPath();
-  ctx.moveTo(x, hipY);
-  ctx.lineTo(lkx, lky);
-  ctx.lineTo(lkx + (legSwing < 0 ? -5 : 3), y - 1);
-  ctx.stroke();
 
   ctx.restore();
 }
@@ -465,7 +603,7 @@ function drawHUD(
     ctx.fillStyle = "#000";
     ctx.textAlign = "center";
     ctx.font = "bold 48px 'Playfair Display', Georgia, serif";
-    ctx.fillText("YOU FELL!", CW / 2, CH / 2 - 28);
+    ctx.fillText("YOU GOT SPIKED!", CW / 2, CH / 2 - 28);
     ctx.font = "16px 'Outfit', sans-serif";
     ctx.fillStyle = "#555";
     ctx.fillText("Press  R  to try again", CW / 2, CH / 2 + 18);
@@ -551,7 +689,7 @@ function drawHUD(
   ctx.fillStyle = "#444";
   ctx.fillText(`${level.company} — Level ${level.id}`, CW / 2, 23);
   ctx.textAlign = "right";
-  ctx.fillStyle = timeRemaining <= 5 ? "#dc2626" : "#000";
+  ctx.fillStyle = timeRemaining <= 10 ? "#dc2626" : "#000";
   ctx.font = "bold 13px 'Outfit', sans-serif";
   ctx.fillText(`⏱ ${Math.ceil(timeRemaining)}s`, CW - 16, 23);
 }
@@ -584,8 +722,35 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
     };
     const onKU = (e: KeyboardEvent) => gsRef.current.keys.delete(e.code);
 
+    const onCanvasClick = (e: MouseEvent) => {
+      const g = gsRef.current;
+      if (g.won && onViewAchievements) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Check if click is within the "View Achievements" button bounds
+        const btnW = 200;
+        const btnH = 44;
+        const btnX = (CW - btnW) / 2;
+        const btnY = CH / 2 + 50;
+        
+        // Scale coordinates if canvas is displayed at different size
+        const scaleX = CW / rect.width;
+        const scaleY = CH / rect.height;
+        const canvasX = x * scaleX;
+        const canvasY = y * scaleY;
+        
+        if (canvasX >= btnX && canvasX <= btnX + btnW && 
+            canvasY >= btnY && canvasY <= btnY + btnH) {
+          onViewAchievements();
+        }
+      }
+    };
+
     window.addEventListener("keydown", onKD);
     window.addEventListener("keyup", onKU);
+    canvas.addEventListener("click", onCanvasClick);
     canvas.focus();
 
     function tick() {
@@ -655,6 +820,24 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
 
       // ── Death / win ──
       if (g.py > CH + 80) g.dead = true;
+      
+      // Check spike collision
+      for (const spike of level.spikes) {
+        const playerBottom = g.py;
+        const playerTop = g.py - PH;
+        const playerLeft = g.px - PW;
+        const playerRight = g.px + PW;
+        
+        // More precise collision - check if player's body overlaps spike area
+        // Allow small tolerance for feet touching spike tips
+        const spikeTop = spike.y;
+        const spikeBottom = spike.y + spike.h;
+        
+        if (playerRight > spike.x + 2 && playerLeft < spike.x + spike.w - 2 &&
+            playerBottom > spikeTop + 5 && playerTop < spikeBottom) {
+          g.dead = true;
+        }
+      }
       if (g.px > level.winX && !g.won) {
         const collectedStars = g.coins.filter(c => c.col).length;
         if (collectedStars >= 8) {
@@ -700,6 +883,13 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       ctx.translate(-Math.round(g.camX), 0);
 
       drawPlatforms(ctx, g.camX, level);
+      
+      // Draw spikes
+      for (const spike of level.spikes) {
+        if (spike.x + spike.w < g.camX - 20 || spike.x > g.camX + CW + 20) continue;
+        drawSpike(ctx, spike);
+      }
+      
       drawFlag(ctx, level.flagX, level.groundY);
 
       for (const c of g.coins) {
@@ -710,6 +900,8 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       drawStickman(
         ctx, g.px, g.py, g.facing, g.walkF,
         g.onGround, Math.abs(g.vx) > 0.2, g.vy,
+        level.id,
+        level.groundY,
       );
 
       ctx.restore();
@@ -732,6 +924,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener("keydown", onKD);
       window.removeEventListener("keyup", onKU);
+      canvas.removeEventListener("click", onCanvasClick);
     };
   }, [level, onLevelComplete, onViewAchievements]);
 
