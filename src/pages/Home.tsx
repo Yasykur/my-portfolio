@@ -266,8 +266,8 @@ export default function Home({ onPlayClick, achievements }: Props) {
               fontSize: 17, fontWeight: 900, color: "white",
               fontFamily: "'Playfair Display', serif",
               boxShadow: `0 2px 10px rgba(13,74,138,0.28)`,
-            }}>P</div>
-            <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 20, color: CD }}>Portfolio</span>
+            }}>FS</div>
+            <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 20, color: CD }}>Fawwaz Susanto</span>
           </div>
           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
             {["Home", "Work", "About", "Contact"].map(item => (
