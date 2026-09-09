@@ -25,7 +25,7 @@ const LEVELS = [
     difficulty: "Intermediate",
     tasks: 12,
     xp: 450,
-    locked: false,
+    locked: true,
     icon: "⬡",
   },
   {
@@ -36,7 +36,7 @@ const LEVELS = [
     difficulty: "Advanced",
     tasks: 16,
     xp: 750,
-    locked: false,
+    locked: true,
     icon: "⟳",
   },
 ];
@@ -51,6 +51,12 @@ const DIFF_COLOR: Record<string, string> = {
 export default function GameLevels({ onBack, onStartGame, onLevelComplete, achievements }: { onBack: () => void; onStartGame: (levelId: number) => void; onLevelComplete: (levelId: number) => void; achievements: Set<number> }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [started, setStarted] = useState<number | null>(null);
+
+  // Calculate locked state dynamically based on achievements
+  const levelsWithLockStatus = LEVELS.map(level => ({
+    ...level,
+    locked: level.id === 1 ? false : !achievements.has(level.id - 1)
+  }));
 
   if (started !== null) {
     return <LevelStarted level={LEVELS[started - 1]} onBack={() => setStarted(null)} onBegin={() => onStartGame(started)} />;
@@ -109,7 +115,7 @@ export default function GameLevels({ onBack, onStartGame, onLevelComplete, achie
       {/* Level grid */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "44px 32px 80px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))", gap: 20 }}>
-          {LEVELS.map(level => (
+          {levelsWithLockStatus.map(level => (
             <LevelCard
               key={level.id}
               level={level}
@@ -135,7 +141,7 @@ export default function GameLevels({ onBack, onStartGame, onLevelComplete, achie
           <div>
             <div style={{ fontSize: 11, color: CL, letterSpacing: 1, fontWeight: 600, marginBottom: 2 }}>READY TO START</div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: CD }}>
-              Level {selected} — {LEVELS[selected - 1].name}
+              Level {selected} — {levelsWithLockStatus[selected - 1].name}
             </div>
           </div>
           <button onClick={() => setStarted(selected!)} style={{

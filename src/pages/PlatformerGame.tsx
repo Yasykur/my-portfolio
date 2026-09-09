@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 const CW = 800;
 const CH = 480;
-const GRAV = 0.55;
-const JUMP_V = -11.5;
+const GRAV = 0.45; // Reduced for slower rise
+const JUMP_V = -10; // Slightly reduced jump velocity
 const SPD = 4.5;
 const PW = 11;   // player half-width
 const PH = 50;   // player height (feet to top)
@@ -380,26 +380,42 @@ function drawStickman(
   ctx.moveTo(x, neckY); ctx.lineTo(x, hipY);
   ctx.stroke();
 
-  // ── Arms ── (swing while walking, raised while falling)
-  const swing = moving && onGround ? Math.sin(walkF * 0.32) * 18 : vy < -2 ? 22 : 0;
+  // ── Arms ── (idle: down at sides, swing while walking, raised while falling)
+  let armAngle = 0;
+  if (moving && onGround) {
+    armAngle = Math.sin(walkF * 0.32) * 0.4; // swing while walking
+  } else if (vy < -2) {
+    armAngle = -0.8; // raised while falling
+  } else {
+    armAngle = 0.3; // relaxed idle: slightly bent down
+  }
+  
+  const armLen = 18;
   ctx.lineWidth = 2.5;
 
+  // Right arm
+  const rax = x + Math.cos(armAngle * facing) * armLen;
+  const ray = shoulderY + 5 + Math.sin(armAngle * facing) * armLen;
   ctx.beginPath();
   ctx.moveTo(x, shoulderY + 5);
-  ctx.lineTo(x + 14 * facing, shoulderY + 5 + swing);
+  ctx.lineTo(rax, ray);
   ctx.stroke();
 
+  // Left arm
+  const lax = x + Math.cos(-armAngle * facing) * armLen;
+  const lay = shoulderY + 5 + Math.sin(-armAngle * facing) * armLen;
   ctx.beginPath();
   ctx.moveTo(x, shoulderY + 5);
-  ctx.lineTo(x - 14 * facing, shoulderY + 5 - swing);
+  ctx.lineTo(lax, lay);
   ctx.stroke();
 
-  // ── Legs ── (alternate while walking, spread in air)
+  // ── Legs ── (idle: together, alternate while walking, spread in air)
   const legSwing = moving && onGround ? Math.sin(walkF * 0.32) * 13 : 0;
   const airSpread = !onGround ? 10 : 0;
+  const idleSpread = !moving && onGround ? 2 : 0; // slight spread for natural idle
 
   // Right leg
-  const rkx = x + 9;
+  const rkx = x + 9 + idleSpread;
   const rky = hipY + 10 + legSwing + airSpread;
   ctx.beginPath();
   ctx.moveTo(x, hipY);
@@ -408,7 +424,7 @@ function drawStickman(
   ctx.stroke();
 
   // Left leg
-  const lkx = x - 9;
+  const lkx = x - 9 - idleSpread;
   const lky = hipY + 10 - legSwing + airSpread;
   ctx.beginPath();
   ctx.moveTo(x, hipY);
@@ -525,7 +541,9 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete }: { o
       if (Math.abs(g.vx) < 0.08) g.vx = 0;
 
       if (J && g.onGround) { g.vy = JUMP_V; g.onGround = false; }
-      g.vy = Math.min(g.vy + GRAV, 16);
+      // Apply gravity with easing at jump peak for Mario-like hang
+      const peakEasing = Math.abs(g.vy) < 2 ? 0.3 : 1; // Reduce gravity near peak
+      g.vy = Math.min(g.vy + GRAV * peakEasing, 16);
 
       if (g.onGround && Math.abs(g.vx) > 0.2) g.walkF++;
       else if (!g.onGround) g.walkF++;
