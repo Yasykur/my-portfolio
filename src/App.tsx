@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Home from "./pages/Home";
 import GameLevels from "./pages/GameLevels";
 import PlatformerGame from "./pages/PlatformerGame";
@@ -10,9 +10,9 @@ export default function App() {
   const [achievements, setAchievements] = useState<Set<number>>(new Set());
   const [selectedLevelId, setSelectedLevelId] = useState<number>(1);
 
-  const handleLevelComplete = (levelId: number) => {
+  const handleLevelComplete = useCallback((levelId: number) => {
     setAchievements(prev => new Set([...prev, levelId]));
-  };
+  }, []);
 
   return (
     <div style={{ fontFamily: "'Outfit', sans-serif" }} className="min-h-full bg-white">
