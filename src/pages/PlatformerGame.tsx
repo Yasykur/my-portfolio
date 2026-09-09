@@ -10,7 +10,7 @@ const PH = 50;   // player height (feet to top)
 
 type PlatType = "ground" | "block" | "pipe";
 interface Plat { x: number; y: number; w: number; h: number; t: PlatType }
-interface Coin { x: number; y: number; col: false }
+interface Coin { x: number; y: number; col: boolean }
 
 interface LevelData {
   id: number;
