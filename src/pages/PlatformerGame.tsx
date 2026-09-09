@@ -6,7 +6,7 @@ const GRAV = 0.45; // Reduced for slower rise
 const JUMP_V = -10; // Slightly reduced jump velocity
 const SPD = 4.5;
 const PW = 11;   // player half-width
-const PH = 50;   // player height (feet to top)
+const PH = 65;   // player height (feet to top)
 
 type PlatType = "ground" | "block" | "pipe";
 interface Plat { x: number; y: number; w: number; h: number; t: PlatType }
@@ -193,6 +193,8 @@ interface GS {
   won: boolean;
   wonT: number;
   insufficientStars: boolean;
+  timeRemaining: number;
+  timeUp: boolean;
 }
 
 function freshState(level: LevelData): GS {
@@ -202,6 +204,7 @@ function freshState(level: LevelData): GS {
     coins: level.coins.map(c => ({ ...c })),
     score: 0, keys: new Set(),
     dead: false, won: false, wonT: 0, insufficientStars: false,
+    timeRemaining: 30, timeUp: false,
   };
 }
 
@@ -335,7 +338,7 @@ function drawStickman(
   const HY = y - PH + HR;       // head center
   const neckY = HY + HR + 2;
   const shoulderY = neckY + 4;
-  const hipY = shoulderY + 18;
+  const hipY = shoulderY + 24;
 
   ctx.save();
   ctx.lineCap = "round";
@@ -450,6 +453,8 @@ function drawHUD(
   dead: boolean,
   won: boolean,
   insufficientStars: boolean,
+  timeUp: boolean,
+  timeRemaining: number,
   wonT: number,
   level: LevelData,
   onViewAchievements?: () => void,
@@ -483,6 +488,19 @@ function drawHUD(
     return;
   }
 
+  if (timeUp) {
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+    ctx.font = "bold 48px 'Playfair Display', Georgia, serif";
+    ctx.fillText("Time's up!", CW / 2, CH / 2 - 28);
+    ctx.font = "16px 'Outfit', sans-serif";
+    ctx.fillStyle = "#555";
+    ctx.fillText("Press  R  to try again", CW / 2, CH / 2 + 18);
+    return;
+  }
+
   if (won) {
     const a = Math.min(1, wonT / 45);
     ctx.fillStyle = `rgba(255,255,255,${a * 0.93})`;
@@ -491,8 +509,8 @@ function drawHUD(
       ctx.globalAlpha = (a - 0.5) * 2;
       ctx.fillStyle = "#000";
       ctx.textAlign = "center";
-      ctx.font = "bold 46px 'Playfair Display', Georgia, serif";
-      ctx.fillText("Whoa! You've unlocked an achievement!", CW / 2, CH / 2 - 38);
+      ctx.font = "bold 38px 'Playfair Display', Georgia, serif";
+      ctx.fillText("You've unlocked an achievement", CW / 2, CH / 2 - 38);
       ctx.font = "18px 'Outfit', sans-serif";
       ctx.fillStyle = "#333";
       ctx.fillText(`Score: ${score}  ·  Stars: ${collected}/${total}`, CW / 2, CH / 2 + 10);
@@ -533,8 +551,9 @@ function drawHUD(
   ctx.fillStyle = "#444";
   ctx.fillText(`${level.company} — Level ${level.id}`, CW / 2, 23);
   ctx.textAlign = "right";
-  ctx.fillStyle = "#000";
-  ctx.fillText(`${collected}/${total} stars`, CW - 16, 23);
+  ctx.fillStyle = timeRemaining <= 5 ? "#dc2626" : "#000";
+  ctx.font = "bold 13px 'Outfit', sans-serif";
+  ctx.fillText(`⏱ ${Math.ceil(timeRemaining)}s`, CW - 16, 23);
 }
 
 /* ─── main component ─────────────────────────────────── */
@@ -557,7 +576,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(e.code)) {
         e.preventDefault();
       }
-      if (e.code === "KeyR" && (g.dead || g.insufficientStars)) {
+      if (e.code === "KeyR" && (g.dead || g.insufficientStars || g.timeUp)) {
         const fresh = freshState(level);
         fresh.keys = g.keys;
         gsRef.current = fresh;
@@ -574,6 +593,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       if (g.dead) return;
       if (g.won) { g.wonT++; return; }
       if (g.insufficientStars) return;
+      if (g.timeUp) return;
 
       const L = g.keys.has("ArrowLeft") || g.keys.has("KeyA");
       const R = g.keys.has("ArrowRight") || g.keys.has("KeyD");
@@ -645,6 +665,13 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
         }
       }
 
+      // ── Timer ──
+      g.timeRemaining -= 1 / 60; // Decrement by 1/60 second per frame (assuming 60fps)
+      if (g.timeRemaining <= 0) {
+        g.timeRemaining = 0;
+        g.timeUp = true;
+      }
+
       // ── Camera ──
       const tCam = g.px - CW * 0.33;
       g.camX += (tCam - g.camX) * 0.1;
@@ -688,7 +715,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       ctx.restore();
 
       const collected = g.coins.filter(c => c.col).length;
-      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.won, g.insufficientStars, g.wonT, level, onViewAchievements);
+      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.won, g.insufficientStars, g.timeUp, g.timeRemaining, g.wonT, level, onViewAchievements);
     }
 
     function loop() {
