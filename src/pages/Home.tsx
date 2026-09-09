@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 
-interface Props { onPlayClick: () => void; }
+interface Props { onPlayClick: () => void; achievements: Set<number>; }
 
 const C = "#1E6FBF";
 const CD = "#0D4A8A";
@@ -247,7 +247,7 @@ function PortfolioCard({ item }: { item: typeof PORTFOLIO_ITEMS[0] }) {
 }
 
 /* ─── PAGE ───────────────────────────────────────────────────── */
-export default function Home({ onPlayClick }: Props) {
+export default function Home({ onPlayClick, achievements }: Props) {
   const [activeFilter, setActiveFilter] = useState("All");
   const filters = ["All", "Design", "Development", "UX/UI", "Motion"];
   const filtered = activeFilter === "All" ? PORTFOLIO_ITEMS : PORTFOLIO_ITEMS.filter(p => p.category === activeFilter);
@@ -329,18 +329,60 @@ export default function Home({ onPlayClick }: Props) {
         </div>
       </section>
 
-      {/* ── 3D LOGOS ── */}
+      {/* ── ACHIEVEMENTS ── */}
       <section style={{ padding: "88px 32px", background: "#f7f9fc" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 64 }}>
-            <div style={{ display: "inline-block", padding: "4px 14px", background: `${C}10`, borderRadius: 20, color: C, fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 14 }}>BRAND IDENTITY</div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 36, margin: "0 0 10px", color: "#0a0a0a" }}>3D Logo Marks</h2>
-            <p style={{ color: "#888", fontSize: 15, margin: 0 }}>Three circle logos — all unlocked. Click to add your photo. Hover to see level progress.</p>
+            <div style={{ display: "inline-block", padding: "4px 14px", background: `${C}10`, borderRadius: 20, color: C, fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 14 }}>CAREER JOURNEY</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 36, margin: "0 0 10px", color: "#0a0a0a" }}>Achievements</h2>
+            <p style={{ color: "#888", fontSize: 15, margin: 0 }}>Complete each company level to unlock achievements. {achievements.size}/3 completed.</p>
           </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 80, flexWrap: "wrap", paddingBottom: 12 }}>
-            <CircleLogo label="PRIMARY" level={1} levelName="The Foundation" tasks={8} done={5} status="active" />
-            <CircleLogo label="SECONDARY" level={2} levelName="The Architect" tasks={12} done={0} status="locked" />
-            <CircleLogo label="TERTIARY" level={3} levelName="The Animator" tasks={16} done={0} status="locked" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+            {[
+              { id: 1, company: "TechCorp Inc.", role: "Senior Frontend Developer", icon: "◈" },
+              { id: 2, company: "DesignStudio", role: "UI/UX Designer", icon: "⬡" },
+              { id: 3, company: "StartupXYZ", role: "Full Stack Engineer", icon: "⟳" },
+            ].map(achievement => (
+              <div key={achievement.id} style={{
+                background: "white",
+                border: `2px solid ${achievements.has(achievement.id) ? "#16a34a" : "#e2e8f0"}`,
+                borderRadius: 12,
+                padding: "28px 24px",
+                boxShadow: achievements.has(achievement.id) ? "0 8px 32px rgba(22,163,74,0.15)" : "0 2px 12px rgba(30,111,191,0.06)",
+                opacity: achievements.has(achievement.id) ? 1 : 0.6,
+                transition: "all 0.3s",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+                  <div style={{
+                    width: 56, height: 56,
+                    borderRadius: 12,
+                    background: achievements.has(achievement.id) ? "#16a34a" : CP,
+                    border: `1px solid ${achievements.has(achievement.id) ? "#16a34a" : C + "25"}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 24,
+                    color: achievements.has(achievement.id) ? "white" : C,
+                  }}>
+                    {achievements.has(achievement.id) ? "✓" : achievement.icon}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: CL, letterSpacing: 1, fontWeight: 600, marginBottom: 2 }}>LEVEL {achievement.id}</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#0a0a0a" }}>{achievement.company}</div>
+                    <div style={{ fontSize: 13, color: C, fontWeight: 500 }}>{achievement.role}</div>
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: achievements.has(achievement.id) ? "#16a34a" : "#94a3b8",
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase",
+                }}>
+                  {achievements.has(achievement.id) ? "✓ UNLOCKED" : "🔒 LOCKED"}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>

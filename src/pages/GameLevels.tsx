@@ -8,9 +8,9 @@ const CP = "#E8F2FB";
 const LEVELS = [
   {
     id: 1,
-    name: "The Foundation",
-    subtitle: "Brand Basics",
-    description: "Master the fundamentals of visual identity — colour theory, typography hierarchy, and grid systems.",
+    name: "TechCorp Inc.",
+    subtitle: "Senior Frontend Developer",
+    description: "Built the core frontend architecture for the company's flagship product. Led the migration to React and implemented a component library used across 5 products.",
     difficulty: "Beginner",
     tasks: 8,
     xp: 200,
@@ -19,36 +19,25 @@ const LEVELS = [
   },
   {
     id: 2,
-    name: "The Architect",
-    subtitle: "Layout & Structure",
-    description: "Construct complex layouts and multi-page systems. Spatial reasoning and information hierarchy.",
+    name: "DesignStudio",
+    subtitle: "UI/UX Designer",
+    description: "Designed user experiences for 20+ client projects. Created design systems and conducted user research that improved conversion rates by 40%.",
     difficulty: "Intermediate",
     tasks: 12,
     xp: 450,
-    locked: true,
+    locked: false,
     icon: "⬡",
   },
   {
     id: 3,
-    name: "The Animator",
-    subtitle: "Motion & Interaction",
-    description: "Bring designs to life with micro-interactions, transitions, and full animation sequences.",
+    name: "StartupXYZ",
+    subtitle: "Full Stack Engineer",
+    description: "Joined as an early engineer and built the entire product from scratch. Architected the backend, implemented the frontend, and deployed to production.",
     difficulty: "Advanced",
     tasks: 16,
     xp: 750,
-    locked: true,
+    locked: false,
     icon: "⟳",
-  },
-  {
-    id: 4,
-    name: "The Mastermind",
-    subtitle: "Full Campaign",
-    description: "Design an end-to-end campaign: brand identity, website, app screens, and motion assets.",
-    difficulty: "Expert",
-    tasks: 24,
-    xp: 1200,
-    locked: true,
-    icon: "✦",
   },
 ];
 
@@ -59,12 +48,12 @@ const DIFF_COLOR: Record<string, string> = {
   Expert: "#9333ea",
 };
 
-export default function GameLevels({ onBack, onStartGame }: { onBack: () => void; onStartGame: () => void }) {
+export default function GameLevels({ onBack, onStartGame, onLevelComplete, achievements }: { onBack: () => void; onStartGame: (levelId: number) => void; onLevelComplete: (levelId: number) => void; achievements: Set<number> }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [started, setStarted] = useState<number | null>(null);
 
   if (started !== null) {
-    return <LevelStarted level={LEVELS[started - 1]} onBack={() => setStarted(null)} onBegin={onStartGame} />;
+    return <LevelStarted level={LEVELS[started - 1]} onBack={() => setStarted(null)} onBegin={() => onStartGame(started)} />;
   }
 
   return (
@@ -98,19 +87,19 @@ export default function GameLevels({ onBack, onStartGame }: { onBack: () => void
       <div style={{ background: `linear-gradient(90deg, ${C}, ${CD})`, padding: "20px 32px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, margin: 0 }}>
-            Complete levels in order to unlock the next challenge. <strong style={{ color: "white" }}>Level 1</strong> is ready to play.
+            Explore my career journey through 3 companies. Each level represents a different role I've held.
           </p>
           <div style={{ display: "flex", gap: 16 }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "white" }}>1/4</div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", letterSpacing: 1 }}>UNLOCKED</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "white" }}>{achievements.size}/3</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", letterSpacing: 1 }}>COMPLETED</div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "white" }}>60</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "white" }}>36</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", letterSpacing: 1 }}>TOTAL TASKS</div>
             </div>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "white" }}>2,600</div>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "white" }}>1,400</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", letterSpacing: 1 }}>MAX XP</div>
             </div>
           </div>
@@ -127,6 +116,7 @@ export default function GameLevels({ onBack, onStartGame }: { onBack: () => void
               selected={selected === level.id}
               onSelect={() => !level.locked && setSelected(selected === level.id ? null : level.id)}
               onStart={() => setStarted(level.id)}
+              achievements={achievements}
             />
           ))}
         </div>
@@ -159,11 +149,12 @@ export default function GameLevels({ onBack, onStartGame }: { onBack: () => void
   );
 }
 
-function LevelCard({ level, selected, onSelect, onStart }: {
+function LevelCard({ level, selected, onSelect, onStart, achievements }: {
   level: typeof LEVELS[0];
   selected: boolean;
   onSelect: () => void;
   onStart: () => void;
+  achievements: Set<number>;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -211,9 +202,12 @@ function LevelCard({ level, selected, onSelect, onStart }: {
               fontSize: 22, color: level.locked ? "#94a3b8" : C,
             }}>{level.locked ? "🔒" : level.icon}</div>
             <div>
-              <div style={{ fontSize: 11, color: "#aaa", letterSpacing: 1, marginBottom: 2 }}>LEVEL {level.id}</div>
+              <div style={{ fontSize: 11, color: CL, letterSpacing: 1, marginBottom: 2 }}>LEVEL {level.id}</div>
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: level.locked ? "#94a3b8" : "#0a0a0a" }}>{level.name}</div>
               <div style={{ fontSize: 12, color: level.locked ? "#94a3b8" : C, fontWeight: 500 }}>{level.subtitle}</div>
+              {achievements.has(level.id) && (
+                <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 700, marginTop: 4 }}>✓ COMPLETED</div>
+              )}
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -223,8 +217,8 @@ function LevelCard({ level, selected, onSelect, onStart }: {
               color: level.locked ? "#94a3b8" : DIFF_COLOR[level.difficulty],
               border: `1px solid ${level.locked ? "#e2e8f0" : DIFF_COLOR[level.difficulty] + "40"}`,
             }}>{level.difficulty}</div>
-            {level.locked && (
-              <div style={{ fontSize: 10, color: "#aaa", fontWeight: 600, letterSpacing: 0.5 }}>LOCKED</div>
+            {achievements.has(level.id) && (
+              <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 600, letterSpacing: 0.5 }}>UNLOCKED</div>
             )}
           </div>
         </div>

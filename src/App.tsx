@@ -7,17 +7,31 @@ type Page = "home" | "levels" | "game";
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
+  const [achievements, setAchievements] = useState<Set<number>>(new Set());
+  const [selectedLevelId, setSelectedLevelId] = useState<number>(1);
+
+  const handleLevelComplete = (levelId: number) => {
+    setAchievements(prev => new Set([...prev, levelId]));
+  };
 
   return (
     <div style={{ fontFamily: "'Outfit', sans-serif" }} className="min-h-full bg-white">
-      {page === "home" && <Home onPlayClick={() => setPage("levels")} />}
+      {page === "home" && <Home onPlayClick={() => setPage("levels")} achievements={achievements} />}
       {page === "levels" && (
         <GameLevels
           onBack={() => setPage("home")}
-          onStartGame={() => setPage("game")}
+          onStartGame={(levelId) => { setSelectedLevelId(levelId); setPage("game"); }}
+          onLevelComplete={handleLevelComplete}
+          achievements={achievements}
         />
       )}
-      {page === "game" && <PlatformerGame onBack={() => setPage("levels")} />}
+      {page === "game" && (
+        <PlatformerGame 
+          onBack={() => setPage("levels")} 
+          levelId={selectedLevelId}
+          onLevelComplete={handleLevelComplete}
+        />
+      )}
     </div>
   );
 }
