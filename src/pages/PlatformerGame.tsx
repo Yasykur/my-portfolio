@@ -452,6 +452,7 @@ function drawHUD(
   insufficientStars: boolean,
   wonT: number,
   level: LevelData,
+  onViewAchievements?: () => void,
 ) {
   if (dead) {
     ctx.fillStyle = "rgba(255,255,255,0.9)";
@@ -491,13 +492,30 @@ function drawHUD(
       ctx.fillStyle = "#000";
       ctx.textAlign = "center";
       ctx.font = "bold 46px 'Playfair Display', Georgia, serif";
-      ctx.fillText("LEVEL COMPLETE!", CW / 2, CH / 2 - 38);
+      ctx.fillText("Whoa! You've unlocked an achievement!", CW / 2, CH / 2 - 38);
       ctx.font = "18px 'Outfit', sans-serif";
       ctx.fillStyle = "#333";
       ctx.fillText(`Score: ${score}  ·  Stars: ${collected}/${total}`, CW / 2, CH / 2 + 10);
-      ctx.font = "13px 'Outfit', sans-serif";
-      ctx.fillStyle = "#999";
-      ctx.fillText("Return to levels to try another company.", CW / 2, CH / 2 + 46);
+      
+      // Draw View Achievements button on canvas
+      if (onViewAchievements && a > 0.8) {
+        const btnW = 200;
+        const btnH = 44;
+        const btnX = (CW - btnW) / 2;
+        const btnY = CH / 2 + 50;
+        
+        ctx.fillStyle = "#1E6FBF";
+        ctx.fillRect(btnX, btnY, btnW, btnH);
+        ctx.strokeStyle = "#0D4A8A";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(btnX, btnY, btnW, btnH);
+        
+        ctx.fillStyle = "white";
+        ctx.font = "bold 15px 'Outfit', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("View Achievements", CW / 2, btnY + 27);
+      }
+      
       ctx.globalAlpha = 1;
     }
     return;
@@ -539,7 +557,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(e.code)) {
         e.preventDefault();
       }
-      if (e.code === "KeyR" && g.dead) {
+      if (e.code === "KeyR" && (g.dead || g.insufficientStars)) {
         const fresh = freshState(level);
         fresh.keys = g.keys;
         gsRef.current = fresh;
@@ -555,6 +573,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       const g = gsRef.current;
       if (g.dead) return;
       if (g.won) { g.wonT++; return; }
+      if (g.insufficientStars) return;
 
       const L = g.keys.has("ArrowLeft") || g.keys.has("KeyA");
       const R = g.keys.has("ArrowRight") || g.keys.has("KeyD");
@@ -669,7 +688,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       ctx.restore();
 
       const collected = g.coins.filter(c => c.col).length;
-      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.won, g.insufficientStars, g.wonT, level);
+      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.won, g.insufficientStars, g.wonT, level, onViewAchievements);
     }
 
     function loop() {
@@ -728,29 +747,6 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
           <span>Press R to restart after dying</span>
           <span style={{ color: "#1E6FBF", fontWeight: 600 }}>Score: {score}</span>
         </div>
-
-        {/* View Achievements button - shows after winning */}
-        {won && onViewAchievements && (
-          <div style={{ marginTop: 16, textAlign: "center" }}>
-            <button
-              onClick={onViewAchievements}
-              style={{
-                padding: "12px 32px",
-                background: "#1E6FBF",
-                color: "white",
-                border: "none",
-                borderRadius: 6,
-                fontSize: 15,
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 4px 16px rgba(30,111,191,0.35)",
-                transition: "all 0.2s",
-              }}
-            >
-              View Achievements
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
