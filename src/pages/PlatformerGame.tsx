@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import MedalReveal from "../components/MedalReveal";
 
 const CW = 800;
 const CH = 480;
@@ -221,6 +222,7 @@ interface GS {
   timeUp: boolean;
   frameCount: number;
   bloodParticles: BloodParticle[];
+  medalCollected: boolean;
 }
 
 function freshState(level: LevelData): GS {
@@ -233,6 +235,7 @@ function freshState(level: LevelData): GS {
     timeRemaining: 60, timeUp: false,
     frameCount: 0,
     bloodParticles: [],
+    medalCollected: false,
   };
 }
 
@@ -478,6 +481,39 @@ function bloodSurfacesAt(px: number, level: LevelData): number[] {
     if (px > plat.x && px < plat.x + plat.w) ys.push(plat.y);
   }
   return ys;
+}
+
+function drawInWorldMedal(ctx: CanvasRenderingContext2D, x: number, y: number, frameCount: number) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  const scaleX = Math.abs(Math.sin(frameCount * 0.08));
+
+  ctx.scale(scaleX, 1);
+
+  // Gold outer circle
+  ctx.beginPath();
+  ctx.arc(0, 0, 14, 0, Math.PI * 2);
+  ctx.fillStyle = "#d4a017";
+  ctx.fill();
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Inner accent circle
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbbf24";
+  ctx.fill();
+
+  // Center star
+  ctx.fillStyle = "#92400e";
+  ctx.font = "bold 10px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("★", 0, 0);
+
+  ctx.restore();
 }
 
 function drawFlag(ctx: CanvasRenderingContext2D, x: number, groundY: number) {
@@ -946,6 +982,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
   const rafRef = useRef(0);
   const [score, setScore] = useState(0);
   const [won, setWon] = useState(false);
+  const [showMedalReveal, setShowMedalReveal] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -1136,11 +1173,15 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
           }
         }
       }
-      if (g.px > level.winX && !g.won) {
+      // Medal position past flag
+      const medalX = level.flagX + 100;
+      const medalY = level.groundY - 30;
+
+      if (Math.abs(g.px - medalX) < 25 && Math.abs(g.py - medalY) < 40 && !g.medalCollected && !g.won) {
         const collectedStars = g.coins.filter(c => c.col).length;
         if (collectedStars >= 8) {
-          g.won = true;
-          onLevelComplete(levelId);
+          g.medalCollected = true;
+          setShowMedalReveal(true);
         } else {
           g.insufficientStars = true;
         }
@@ -1184,6 +1225,22 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       }
 
       drawFlag(ctx, level.flagX, level.groundY);
+
+      // Draw Medal past flag if not collected
+      const medalX = level.flagX + 100;
+      const medalY = level.groundY - 30;
+
+      if (!g.medalCollected) {
+        drawInWorldMedal(ctx, medalX, medalY, g.frameCount);
+      }
+
+      // Prompt when player reaches or passes flag
+      if (g.px >= level.flagX - 20 && !g.medalCollected) {
+        ctx.fillStyle = "#1e3a8a";
+        ctx.font = "bold 13px 'Outfit', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Grab the medal! →", level.flagX + 50, level.groundY - 80);
+      }
 
       for (const m of level.monsters) {
         if (m.pipeX < g.camX - 60 || m.pipeX > g.camX + CW + 60) continue;
@@ -1292,7 +1349,19 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       minHeight: "100vh", background: "#f3f7fc",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       fontFamily: "'Outfit', sans-serif", padding: 24,
+      position: "relative",
     }}>
+      {showMedalReveal && (
+        <MedalReveal
+          logoSrc="/logos/cosmopolitan.png"
+          label="Cosmopolitan College Brunei"
+          onComplete={() => {
+            setShowMedalReveal(false);
+            gsRef.current.won = true;
+            onLevelComplete(levelId);
+          }}
+        />
+      )}
       <div style={{ width: CW, maxWidth: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <button onClick={onBack} style={{

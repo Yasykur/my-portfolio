@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import MedalReveal from "../components/MedalReveal";
 
 const CW = 800;
 const CH = 480;
@@ -44,6 +45,9 @@ interface GS {
   nextSpawn: number;
   keys: Set<string>;
   ragdollParts: RagdollPart[];
+  autoRunning: boolean;
+  autoRunTimer: number;
+  medalX: number;
 }
 
 function freshState(): GS {
@@ -64,6 +68,9 @@ function freshState(): GS {
     nextSpawn: 90,
     keys: new Set(),
     ragdollParts: [],
+    autoRunning: false,
+    autoRunTimer: 0,
+    medalX: 0,
   };
 }
 
@@ -275,6 +282,38 @@ function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle, frameCount: 
   ctx.restore();
 }
 
+function drawInWorldMedal(ctx: CanvasRenderingContext2D, x: number, y: number, frameCount: number) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  const scaleX = Math.abs(Math.sin(frameCount * 0.08));
+  ctx.scale(scaleX, 1);
+
+  // Gold outer circle
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI * 2);
+  ctx.fillStyle = "#d4a017";
+  ctx.fill();
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Inner accent circle
+  ctx.beginPath();
+  ctx.arc(0, 0, 10, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbbf24";
+  ctx.fill();
+
+  // Center star
+  ctx.fillStyle = "#92400e";
+  ctx.font = "bold 11px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("★", 0, 0);
+
+  ctx.restore();
+}
+
 function drawBird(ctx: CanvasRenderingContext2D, obs: Obstacle, frameCount: number) {
   ctx.save();
   ctx.strokeStyle = "#1e3a8a";
@@ -455,6 +494,7 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
   const gsRef = useRef<GS>(freshState());
   const rafRef = useRef(0);
   const [won, setWon] = useState(false);
+  const [showMedalReveal, setShowMedalReveal] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -469,7 +509,7 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
       if (e.code === "KeyR" && g.dead) {
         gsRef.current = freshState();
       }
-      if ((e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") && g.onGround && !g.dead && !g.won) {
+      if ((e.code === "Space" || e.code === "ArrowUp" || e.code === "KeyW") && g.onGround && !g.dead && !g.won && !g.autoRunning) {
         g.vy = JUMP_V;
         g.onGround = false;
       }
@@ -539,12 +579,28 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
       if (g.won) { g.wonT++; return; }
 
       g.frameCount++;
+
+      if (g.autoRunning) {
+        g.autoRunTimer--;
+        g.px += 2;
+        g.medalX -= g.speed;
+        g.walkF++;
+
+        if (g.autoRunTimer <= 0 || Math.abs(g.px - g.medalX) < 25) {
+          g.autoRunning = false;
+          setShowMedalReveal(true);
+        }
+        return;
+      }
+
       g.timeRemaining -= 1 / 60;
 
       if (g.timeRemaining <= 0) {
         g.timeRemaining = 0;
-        g.won = true;
-        onLevelComplete(2);
+        g.autoRunning = true;
+        g.autoRunTimer = 90; // 1.5s auto-run
+        g.medalX = CW + 180;
+        g.obstacles = [];
       }
 
       // Increase speed slightly over time
@@ -671,6 +727,11 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
         drawObstacle(ctx, obs, g.frameCount);
       }
 
+      // Draw approaching medal if auto-running
+      if (g.autoRunning || g.medalX > 0) {
+        drawInWorldMedal(ctx, g.medalX, GROUND_Y - 35, g.frameCount);
+      }
+
       // Draw player (or ragdoll if dead)
       if (g.dead && g.ragdollParts.length > 0) {
         drawRagdoll(ctx, g.ragdollParts);
@@ -704,7 +765,19 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
       minHeight: "100vh", background: "#f3f7fc",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       fontFamily: "'Outfit', sans-serif", padding: 24,
+      position: "relative",
     }}>
+      {showMedalReveal && (
+        <MedalReveal
+          logoSrc="/logos/muara.png"
+          label="Muara International Fish Landing"
+          onComplete={() => {
+            setShowMedalReveal(false);
+            gsRef.current.won = true;
+            onLevelComplete(2);
+          }}
+        />
+      )}
       <div style={{ width: CW, maxWidth: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <button onClick={onBack} style={{
