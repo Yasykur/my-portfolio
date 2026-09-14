@@ -525,9 +525,13 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
 
         if (part.y >= GROUND_Y) {
           part.y = GROUND_Y;
-          part.vy = 0;
-          part.vx *= 0.5;
-          part.angularV *= 0.5;
+          if (part.vy > 0) {
+            part.vy *= -0.45;
+            part.vx += (Math.random() - 0.5) * 3;
+          }
+          if (Math.abs(part.vy) < 0.5) part.vy = 0;
+          part.vx *= 0.9;
+          part.angularV *= 0.85;
         }
       }
 
@@ -562,20 +566,20 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
       g.nextSpawn--;
       if (g.nextSpawn <= 0) {
         const rand = Math.random();
-        let type: "cactus" | "bar" | "bird";
+        let type: "cactus" | "rock" | "bird";
         if (rand > 0.85) {
           type = "bird";
         } else if (rand > 0.7) {
-          type = "bar";
+          type = "rock";
         } else {
           type = "cactus";
         }
 
         const obs: Obstacle = {
           x: CW + 50,
-          y: type === "bird" ? GROUND_Y - 150 : type === "bar" ? GROUND_Y - 28 : GROUND_Y - 50,
-          w: type === "bird" ? 34 : type === "bar" ? 34 : 30,
-          h: type === "bird" ? 36 : type === "bar" ? 28 : 50,
+          y: type === "bird" ? GROUND_Y - 150 : type === "rock" ? GROUND_Y - 28 : GROUND_Y - 50,
+          w: type === "bird" ? 34 : type === "rock" ? 34 : 30,
+          h: type === "bird" ? 36 : type === "rock" ? 28 : 50,
           type,
         };
         g.obstacles.push(obs);
@@ -611,17 +615,17 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
 
           g.ragdollParts = [
             // Head
-            { x: g.px, y: HY, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4, angle: 0, angularV: (Math.random() - 0.5) * 0.3, length: 0, type: "head" },
+            { x: g.px, y: HY, vx: (Math.random() - 0.5) * 18, vy: -Math.random() * 14 - 4, angle: 0, angularV: (Math.random() - 0.5) * 1.4, length: 0, type: "head" },
             // Torso
-            { x: g.px, y: (neckY + hipY) / 2, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4, angle: 0, angularV: (Math.random() - 0.5) * 0.3, length: hipY - neckY, type: "torso" },
+            { x: g.px, y: (neckY + hipY) / 2, vx: (Math.random() - 0.5) * 18, vy: -Math.random() * 14 - 4, angle: 0, angularV: (Math.random() - 0.5) * 1.4, length: hipY - neckY, type: "torso" },
             // Left arm
-            { x: g.px - 8, y: shoulderY + 17, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4, angle: 0, angularV: (Math.random() - 0.5) * 0.3, length: 25, type: "limb" },
+            { x: g.px - 8, y: shoulderY + 17, vx: (Math.random() - 0.5) * 18, vy: -Math.random() * 14 - 4, angle: 0, angularV: (Math.random() - 0.5) * 1.4, length: 25, type: "limb" },
             // Right arm
-            { x: g.px + 8, y: shoulderY + 17, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4, angle: 0, angularV: (Math.random() - 0.5) * 0.3, length: 25, type: "limb" },
+            { x: g.px + 8, y: shoulderY + 17, vx: (Math.random() - 0.5) * 18, vy: -Math.random() * 14 - 4, angle: 0, angularV: (Math.random() - 0.5) * 1.4, length: 25, type: "limb" },
             // Left leg
-            { x: g.px - 7, y: hipY + 35, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4, angle: 0, angularV: (Math.random() - 0.5) * 0.3, length: 35, type: "limb" },
+            { x: g.px - 7, y: hipY + 35, vx: (Math.random() - 0.5) * 18, vy: -Math.random() * 14 - 4, angle: 0, angularV: (Math.random() - 0.5) * 1.4, length: 35, type: "limb" },
             // Right leg
-            { x: g.px + 7, y: hipY + 35, vx: (Math.random() - 0.5) * 6, vy: -Math.random() * 4, angle: 0, angularV: (Math.random() - 0.5) * 0.3, length: 35, type: "limb" },
+            { x: g.px + 7, y: hipY + 35, vx: (Math.random() - 0.5) * 18, vy: -Math.random() * 14 - 4, angle: 0, angularV: (Math.random() - 0.5) * 1.4, length: 35, type: "limb" },
           ];
         }
       }
