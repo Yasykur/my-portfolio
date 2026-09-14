@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import GameLevels from "./pages/GameLevels";
 import PlatformerGame from "./pages/PlatformerGame";
 import RunnerGame from "./pages/RunnerGame";
+import ShooterGame from "./pages/ShooterGame";
 
 type Page = "home" | "levels" | "game";
 
@@ -27,7 +28,13 @@ export default function App() {
         />
       )}
       {page === "game" && (
-        selectedLevelId === 2 ? (
+        selectedLevelId === 3 ? (
+          <ShooterGame
+            onBack={() => setPage("levels")}
+            onLevelComplete={handleLevelComplete}
+            onViewAchievements={() => setPage("home")}
+          />
+        ) : selectedLevelId === 2 ? (
           <RunnerGame
             onBack={() => setPage("levels")}
             onLevelComplete={handleLevelComplete}
