@@ -6,12 +6,14 @@ const GRAV = 0.45; // Reduced for slower rise
 const JUMP_V = -10; // Slightly reduced jump velocity
 const SPD = 3.8; // Reduced by ~15% for more controlled movement
 const PW = 11;   // player half-width
-const PH = 65;   // player height (feet to top)
+const PH = 70;   // player height (feet to top)
 
 type PlatType = "ground" | "block" | "pipe";
 interface Plat { x: number; y: number; w: number; h: number; t: PlatType }
 interface Coin { x: number; y: number; col: boolean }
 interface Spike { x: number; y: number; w: number; h: number }
+interface Monster { pipeX: number; pipeTopY: number; period: number; phaseOffset: number }
+interface BloodParticle { x: number; y: number; vx: number; vy: number; settled: boolean; r: number }
 
 interface LevelData {
   id: number;
@@ -20,6 +22,7 @@ interface LevelData {
   platforms: Plat[];
   coins: Coin[];
   spikes: Spike[];
+  monsters: Monster[];
   winX: number;
   flagX: number;
   groundY: number;
@@ -61,18 +64,22 @@ const LEVELS: LevelData[] = [
     spikes: [
       { x: 490, y: 260, w: 36, h: 18 },
       { x: 800, y: 402, w: 48, h: 22 },
-      { x: 930, y: 290, w: 36, h: 20 },
+      { x: 995, y: 290, w: 36, h: 20 },
       { x: 1180, y: 400, w: 48, h: 24 },
       { x: 1350, y: 405, w: 36, h: 19 },
       { x: 1580, y: 403, w: 48, h: 21 },
       { x: 1800, y: 404, w: 36, h: 20 },
+    ],
+    monsters: [
+      { pipeX: 350, pipeTopY: 368, period: 180, phaseOffset: 0 },
+      { pipeX: 1050, pipeTopY: 374, period: 180, phaseOffset: 90 },
     ],
     coins: [
       { x: 285, y: 310, col: false },
       { x: 465, y: 244, col: false },
       { x: 625, y: 306, col: false },
       { x: 795, y: 218, col: false },
-      { x: 978, y: 278, col: false },
+      { x: 978, y: 400, col: false },
       { x: 1150, y: 226, col: false },
       { x: 1335, y: 286, col: false },
       { x: 1525, y: 224, col: false },
@@ -115,6 +122,7 @@ const LEVELS: LevelData[] = [
       { x: 1600, y: 384, w: 48,  h: 40, t: "pipe" },
     ],
     spikes: [],
+    monsters: [],
     coins: [
       { x: 245, y: 326, col: false },
       { x: 420, y: 266, col: false },
@@ -163,6 +171,7 @@ const LEVELS: LevelData[] = [
       { x: 1620, y: 380, w: 48,  h: 44, t: "pipe" },
     ],
     spikes: [],
+    monsters: [],
     coins: [
       { x: 275, y: 316, col: false },
       { x: 440, y: 256, col: false },
@@ -203,11 +212,15 @@ interface GS {
   score: number;
   keys: Set<string>;
   dead: boolean;
+  deathCause: "fall" | "spike" | "monster" | null;
+  deathT: number;
   won: boolean;
   wonT: number;
   insufficientStars: boolean;
   timeRemaining: number;
   timeUp: boolean;
+  frameCount: number;
+  bloodParticles: BloodParticle[];
 }
 
 function freshState(level: LevelData): GS {
@@ -216,8 +229,10 @@ function freshState(level: LevelData): GS {
     onGround: false, facing: 1, walkF: 0, camX: 0,
     coins: level.coins.map(c => ({ ...c })),
     score: 0, keys: new Set(),
-    dead: false, won: false, wonT: 0, insufficientStars: false,
+    dead: false, deathCause: null, deathT: 0, won: false, wonT: 0, insufficientStars: false,
     timeRemaining: 60, timeUp: false,
+    frameCount: 0,
+    bloodParticles: [],
   };
 }
 
@@ -315,16 +330,16 @@ function drawSpike(ctx: CanvasRenderingContext2D, spike: Spike) {
   ctx.fillStyle = "#444";
   ctx.strokeStyle = "#000";
   ctx.lineWidth = 2;
-  
+
   // Draw jagged sawtooth pattern with 3-4 sharp points
   const numPoints = Math.floor(spike.w / 12); // 3-4 points based on width
   const pointWidth = spike.w / numPoints;
-  
+
   for (let i = 0; i < numPoints; i++) {
     const startX = spike.x + i * pointWidth;
     const midX = startX + pointWidth / 2;
     const endX = startX + pointWidth;
-    
+
     ctx.beginPath();
     ctx.moveTo(startX, spike.y + spike.h);
     ctx.lineTo(midX, spike.y);
@@ -333,8 +348,136 @@ function drawSpike(ctx: CanvasRenderingContext2D, spike: Spike) {
     ctx.fill();
     ctx.stroke();
   }
-  
+
   ctx.restore();
+}
+
+/* ─── biting pipe monster (Piranha-Plant style) ─────────── */
+
+const MONSTER_MAX_HEIGHT = 100; // long reaching root
+
+function monsterExtension(m: Monster, frame: number): number {
+  // 0 = fully hidden in pipe, 1 = fully emerged. Spends most of the cycle hidden.
+  const t = (frame + m.phaseOffset) % m.period;
+  const raw = Math.sin((t / m.period) * Math.PI * 2);
+  return Math.max(0, Math.min(1, raw * 1.6 - 0.5));
+}
+
+function monsterMouthOpenness(m: Monster, frame: number, ext: number): number {
+  if (ext < 0.3) return 0;
+  return ((Math.sin((frame + m.phaseOffset) * 0.35) + 1) / 2) * ext;
+}
+
+function monsterHitbox(m: Monster, frame: number) {
+  const ext = monsterExtension(m, frame);
+  const bodyH = MONSTER_MAX_HEIGHT * ext;
+  const baseX = m.pipeX + 24;
+  const headOffsetX = Math.sin(1 * Math.PI * 2.2) * 5; // matches the wobble at the top segment in drawMonster
+  const headX = baseX + headOffsetX;
+  const topY = m.pipeTopY - bodyH;
+  const mouthY = topY + 5;
+  const openness = monsterMouthOpenness(m, frame, ext);
+  const jawGap = 3 + 6 * openness;
+  return {
+    ext, cx: headX, mouthY, jawGap,
+    left: headX - 9, right: headX + 9,
+    top: mouthY - jawGap - 2, bottom: mouthY + jawGap + 2,
+  };
+}
+
+function drawMonster(ctx: CanvasRenderingContext2D, m: Monster, frame: number) {
+  const ext = monsterExtension(m, frame);
+  if (ext <= 0.02) return; // fully hidden — nothing to draw
+
+  const cx = m.pipeX + 24;
+  const baseY = m.pipeTopY;
+  const bodyH = MONSTER_MAX_HEIGHT * ext;
+  const topY = baseY - bodyH;
+  const openness = monsterMouthOpenness(m, frame, ext);
+  const mouthY = topY + 5;
+  const jawGap = 3 + 6 * openness;
+
+  ctx.save();
+
+  // ── Body: a tall, twisted root column (not a smooth stem) ──
+  const segments = 7;
+  const wobble = 5; // how much the root snakes side to side
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const py = baseY - bodyH * t;
+    const px = cx + Math.sin(t * Math.PI * 2.2) * wobble * t; // wobble grows toward the top
+    pts.push({ x: px, y: py });
+  }
+
+  ctx.strokeStyle = "#14532d";
+  ctx.fillStyle = "#16a34a";
+  ctx.lineWidth = 9;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // thin darker root fibers running alongside the main column, for texture
+  ctx.strokeStyle = "#14532d";
+  ctx.lineWidth = 1.2;
+  for (const offset of [-3, 3]) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x + offset, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x + offset * (1 - i / pts.length * 0.4), pts[i].y);
+    ctx.stroke();
+  }
+
+  // small root nubs branching off the column
+  [2, 4].forEach(i => {
+    if (i >= pts.length) return;
+    const p = pts[i];
+    const side = i % 2 === 0 ? 1 : -1;
+    ctx.strokeStyle = "#14532d";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.quadraticCurveTo(p.x + side * 7, p.y + 2, p.x + side * 11, p.y - 2);
+    ctx.stroke();
+  });
+
+  const headX = pts[pts.length - 1].x;
+
+  // Mouth interior
+  ctx.fillStyle = "#7f1d1d";
+  ctx.beginPath();
+  ctx.ellipse(headX, mouthY, 8, jawGap, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Teeth (top and bottom jaw)
+  ctx.fillStyle = "#fff";
+  for (let i = -1; i <= 1; i++) {
+    const tx = headX + i * 5;
+    ctx.beginPath();
+    ctx.moveTo(tx - 2, mouthY - jawGap);
+    ctx.lineTo(tx + 2, mouthY - jawGap);
+    ctx.lineTo(tx, mouthY - jawGap + 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(tx - 2, mouthY + jawGap);
+    ctx.lineTo(tx + 2, mouthY + jawGap);
+    ctx.lineTo(tx, mouthY + jawGap - 3);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function bloodSurfacesAt(px: number, level: LevelData): number[] {
+  const ys: number[] = [];
+  for (const plat of level.platforms) {
+    if (px > plat.x && px < plat.x + plat.w) ys.push(plat.y);
+  }
+  return ys;
 }
 
 function drawFlag(ctx: CanvasRenderingContext2D, x: number, groundY: number) {
@@ -376,208 +519,269 @@ function drawStickman(
   levelId: number,
   groundY: number,
 ) {
-  const HR = 10;
-  const HY = y - PH + HR;       // head center
-  const neckY = HY + HR + 2;
-  const shoulderY = neckY + 4;
-  const hipY = shoulderY + 24;
+  // ── Clean proportion budget (total PH = 70) ──
+  // Head: 18px | Neck: 5px | Torso: 20px | Legs: 27px
+  const HR = 9;                    // head radius (18px diameter)
+  const headTopY = y - PH;         // top of head, fixed reference
+  const HY = headTopY + HR;        // head center
+  const neckY = HY + HR + 3;       // bottom of head + 3px neck
+  const shoulderY = neckY + 2;
+  const hipY = shoulderY + 20;     // torso = 20px
+  const legLength = y - hipY;      // remaining = 27px, feet always land exactly at y
 
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // ── Shadow ── (always at ground level, anchored to floor)
-  // Shadow stays at fixed ground level, never moves up with character
-  const shadowY = groundY + 2; // always at ground level
-  const shadowSize = onGround ? 13 : Math.max(6, 11 - Math.abs(vy) * 0.25); // shrink when jumping
-  const shadowOpacity = onGround ? 0.1 : Math.max(0.07, 0.09 - Math.abs(vy) * 0.005); // fixed minimum while airborne
-  
+  // ── Shadow (always pinned to ground, never moves with jump) ──
+  const shadowSize = onGround ? 13 : Math.max(7, 12 - Math.abs(vy) * 0.2);
+  const shadowOpacity = onGround ? 0.12 : 0.08;
   ctx.fillStyle = `rgba(0,0,0,${shadowOpacity})`;
   ctx.beginPath();
-  ctx.ellipse(x, shadowY, shadowSize, shadowSize * 0.3, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, groundY + 2, shadowSize, shadowSize * 0.3, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ── Head ── (simple circle outline)
+  // ── Animation phase ──
+  const walkCycle = moving && onGround ? walkF * 0.25 : 0;
+  const swing = Math.sin(walkCycle);       // -1..1, right leg/left arm phase
+  const swingOpp = Math.sin(walkCycle + Math.PI); // opposite phase, always = -swing
+
+  ctx.strokeStyle = "#000";
+
+  // ── LEGS (drawn first, always fully visible) ──
+  const stance = 7; // half-distance between legs at hip, in local (unflipped) space
+  const kneeY = hipY + legLength * 0.5;
+  const footBaseY = hipY + legLength;
+
+  function drawLeg(sideSign: number, phase: number, airborne: boolean) {
+    // sideSign: +1 = right leg, -1 = left leg (in facing-relative space, then mirrored by facing)
+    const hipX = x + sideSign * stance * facing;
+    let kneeX = hipX + sideSign * 1.5 * facing;
+    let footX = hipX;
+    let kY = kneeY;
+    let fY = footBaseY;
+
+    if (airborne) {
+      // legs spread apart in the air, slightly bent
+      footX = hipX + sideSign * 6 * facing;
+      kY = kneeY - 2;
+      fY = footBaseY - 4;
+    } else if (moving && onGround) {
+      // walk cycle: leg swings fore/aft, knee lifts on the forward swing
+      const swingAmt = phase * 9;
+      footX = hipX + swingAmt * facing;
+      kneeX = hipX + swingAmt * 0.4 * facing;
+      kY = kneeY - Math.max(0, phase) * 5; // knee lifts only when leg is forward
+    }
+
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x + sideSign * stance * facing * 0.3, hipY); // slight hip offset toward center
+    ctx.lineTo(kneeX, kY);
+    ctx.lineTo(footX, fY);
+    ctx.stroke();
+
+    // flat foot
+    ctx.beginPath();
+    ctx.moveTo(footX, fY);
+    ctx.lineTo(footX + 4 * facing, fY);
+    ctx.stroke();
+  }
+
+  if (!onGround) {
+    drawLeg(1, 0, true);
+    drawLeg(-1, 0, true);
+  } else {
+    drawLeg(1, swing, false);
+    drawLeg(-1, swingOpp, false);
+  }
+
+  // ── TORSO ──
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(x, neckY);
+  ctx.lineTo(x, hipY);
+  ctx.stroke();
+
+  // ── ARMS + ROBE SLEEVES (computed together so sleeves follow the arms) ──
+  const shoulderDrawY = shoulderY + 3;
+
+  let rArmX: number, rArmY: number, lArmX: number, lArmY: number;
+
+  if (!onGround) {
+    const armAngle = vy < 0 ? -22 : -10;
+    const armSpread = vy < 0 ? 15 : 11;
+    rArmX = x + armSpread * facing; rArmY = shoulderDrawY + armAngle;
+    lArmX = x - armSpread * facing; lArmY = shoulderDrawY + armAngle;
+  } else if (moving) {
+    const armSwing = swingOpp * 12;
+    rArmX = x + 11 * facing; rArmY = shoulderDrawY + 14 + armSwing;
+    lArmX = x - 11 * facing; lArmY = shoulderDrawY + 14 - armSwing;
+  } else {
+    rArmX = x + 8; rArmY = shoulderDrawY + 17;
+    lArmX = x - 8; lArmY = shoulderDrawY + 17;
+  }
+
+  // ── GRADUATION ROBE (Level 1 only) — gown silhouette + gold sash/trim ──
+  const GOLD = "#d4a017";
+  if (levelId === 1) {
+    const robeTop = shoulderY + 3;
+    const robeBottom = hipY + 20;
+    const shoulderWidth = 13;
+    const hemHalfWidth = shoulderWidth / 2 + 6; // narrower flare — stays gown-shaped, not skirt-shaped
+
+    let leftHemX = x - hemHalfWidth;
+    let rightHemX = x + hemHalfWidth;
+    let hemLift = 0;
+
+    if (!onGround) {
+      const flare = vy < 0 ? 5 : 2;
+      leftHemX -= flare;
+      rightHemX += flare;
+      hemLift = 3;
+    } else if (moving) {
+      const sway = swing * 3.5;
+      leftHemX += sway;
+      rightHemX += sway * 0.6;
+    }
+
+    const topLeftX = x - shoulderWidth / 2;
+    const topRightX = x + shoulderWidth / 2;
+    // flare only kicks in during the last 30% of the gown's length — stays narrow like a real robe up top
+    const flareStartY = robeTop + (robeBottom - robeTop) * 0.7;
+    const hemY = robeBottom - hemLift;
+
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.moveTo(topLeftX, robeTop);
+    ctx.lineTo(topLeftX - 1, flareStartY);
+    ctx.quadraticCurveTo(topLeftX - 3, flareStartY + (hemY - flareStartY) * 0.6, leftHemX, hemY);
+    ctx.lineTo(rightHemX, hemY);
+    ctx.quadraticCurveTo(topRightX + 3, flareStartY + (hemY - flareStartY) * 0.6, topRightX + 1, flareStartY);
+    ctx.lineTo(topRightX, robeTop);
+    ctx.lineTo(x, robeTop + 5); // V-neck collar notch
+    ctx.closePath();
+    ctx.fill();
+
+    // Gold hem trim
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(leftHemX, hemY);
+    ctx.lineTo(rightHemX, hemY);
+    ctx.stroke();
+
+    // Gold diagonal sash
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(topLeftX + 2, robeTop + 2);
+    ctx.lineTo(rightHemX - 4, hemY - 3);
+    ctx.stroke();
+
+    function drawSleeve(shoulderX: number, endX: number, endY: number) {
+      const sleeveEndX = shoulderX + (endX - shoulderX) * 0.65;
+      const sleeveEndY = robeTop + (endY - robeTop) * 0.65;
+      const perpX = -(sleeveEndY - robeTop) * 0.18;
+      const perpY = (sleeveEndX - shoulderX) * 0.18;
+
+      ctx.beginPath();
+      ctx.moveTo(shoulderX - 3, robeTop + 1);
+      ctx.lineTo(shoulderX + 3, robeTop + 1);
+      ctx.lineTo(sleeveEndX + perpX, sleeveEndY + perpY);
+      ctx.lineTo(sleeveEndX - perpX, sleeveEndY - perpY);
+      ctx.closePath();
+      ctx.fill();
+      return { sleeveEndX, sleeveEndY };
+    }
+
+    const rSleeveEnd = drawSleeve(x + shoulderWidth / 2 - 1, rArmX, rArmY);
+    const lSleeveEnd = drawSleeve(x - shoulderWidth / 2 + 1, lArmX, lArmY);
+
+    // Gold cuff trim at each sleeve end
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(rSleeveEnd.sleeveEndX, rSleeveEnd.sleeveEndY, 2.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(lSleeveEnd.sleeveEndX, lSleeveEnd.sleeveEndY, 2.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Hands/forearms poking out past the sleeve
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(rSleeveEnd.sleeveEndX, rSleeveEnd.sleeveEndY);
+    ctx.lineTo(rArmX, rArmY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lSleeveEnd.sleeveEndX, lSleeveEnd.sleeveEndY);
+    ctx.lineTo(lArmX, lArmY);
+    ctx.stroke();
+  } else {
+    // Non-robed levels: draw full arm lines directly
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderDrawY);
+    ctx.lineTo(rArmX, rArmY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, shoulderDrawY);
+    ctx.lineTo(lArmX, lArmY);
+    ctx.stroke();
+  }
+
+  // ── HEAD ──
   ctx.beginPath();
   ctx.arc(x, HY, HR, 0, Math.PI * 2);
-  ctx.strokeStyle = "#000";
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  // ── Glasses ── (black rectangular frames only, flip based on facing)
-  const GW = 8, GH = 6;
-  const GY = HY - 1.5;
+  // ── GLASSES ──
+  const GW = 7, GH = 5;
+  const GY = HY - 1;
   const bridgeGap = 3;
-  
-  // Adjust glasses position based on facing direction
-  const glassesOffset = facing === 1 ? 0 : 1;
-  const lx = x - bridgeGap / 2 - GW + glassesOffset;
-  const rx = x + bridgeGap / 2 + glassesOffset;
+  const lx = x - bridgeGap / 2 - GW;
+  const rx = x + bridgeGap / 2;
 
-  ctx.strokeStyle = "#000";
   ctx.lineWidth = 2.5;
-
-  // Left lens frame
   ctx.strokeRect(lx, GY - GH / 2, GW, GH);
-  // Right lens frame
   ctx.strokeRect(rx, GY - GH / 2, GW, GH);
-  // Bridge
   ctx.beginPath();
   ctx.moveTo(lx + GW, GY);
   ctx.lineTo(rx, GY);
   ctx.stroke();
 
-  // ── Graduation Cap (Level 1 only) ──
+  // ── GRADUATION CAP (Level 1 only) ──
   if (levelId === 1) {
     const capWidth = 20;
     const capHeight = 6;
-    const capY = HY - HR - capHeight - 2;
-    
-    // Clear square/diamond mortarboard top with sharp corners
-    ctx.strokeStyle = "#000";
+    const capY = headTopY - capHeight - 1;
+
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(x, capY - 3); // top point
-    ctx.lineTo(x + capWidth / 2, capY + capHeight / 2); // right point
-    ctx.lineTo(x, capY + capHeight + 2); // bottom point
-    ctx.lineTo(x - capWidth / 2, capY + capHeight / 2); // left point
+    ctx.moveTo(x, capY - 3);
+    ctx.lineTo(x + capWidth / 2, capY + capHeight / 2);
+    ctx.lineTo(x, capY + capHeight + 2);
+    ctx.lineTo(x - capWidth / 2, capY + capHeight / 2);
     ctx.closePath();
     ctx.stroke();
-    
-    // Clear brim/skull cap outline
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x - capWidth / 2 + 2, capY + capHeight / 2);
-    ctx.lineTo(x - capWidth / 2 + 2, capY + capHeight + 4);
-    ctx.lineTo(x + capWidth / 2 - 2, capY + capHeight + 4);
-    ctx.lineTo(x + capWidth / 2 - 2, capY + capHeight / 2);
-    ctx.stroke();
-    
-    // Small clear button in center
+
     ctx.fillStyle = "#000";
     ctx.beginPath();
-    ctx.arc(x, capY + capHeight / 2, 2, 0, Math.PI * 2);
+    ctx.arc(x, capY + capHeight / 2, 1.8, 0, Math.PI * 2);
     ctx.fill();
-    
-    // Clear tassel hanging from the side facing direction
+
     const tasselSide = facing === 1 ? 1 : -1;
-    ctx.strokeStyle = "#000";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(x + (capWidth / 2) * tasselSide, capY + capHeight / 2);
-    ctx.lineTo(x + (capWidth / 2 + 7) * tasselSide, capY + capHeight / 2 + 14);
+    ctx.lineTo(x + (capWidth / 2 + 6) * tasselSide, capY + capHeight / 2 + 13);
     ctx.stroke();
-    
-    // Clear circle bead at tassel end
-    ctx.fillStyle = "#000";
     ctx.beginPath();
-    ctx.arc(x + (capWidth / 2 + 7) * tasselSide, capY + capHeight / 2 + 16, 2.5, 0, Math.PI * 2);
+    ctx.arc(x + (capWidth / 2 + 6) * tasselSide, capY + capHeight / 2 + 15, 2, 0, Math.PI * 2);
     ctx.fill();
-  }
-
-  // ── Body ──
-  ctx.strokeStyle = "#000";
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(x, neckY); ctx.lineTo(x, hipY);
-  ctx.stroke();
-
-  // ── Animation parameters ──
-  const walkCycle = moving && onGround ? walkF * 0.28 : 0;
-
-  // ── Legs ── (idle: together, alternate while walking, spread in air)
-  // Use smoother sine-wave motion for natural walk cycle
-  const legSwing = Math.sin(walkCycle) * 14;
-  const legPhase = Math.sin(walkCycle + Math.PI / 2) * 8; // phase-shifted for knee bend
-  const airSpread = !onGround ? 16 : 0;
-  const jumpLegExtension = !onGround && vy < 0 ? 8 : 0; // extend legs when jumping up
-
-  // Right leg (increased separation, keep facing for proper flip)
-  const rightLegBase = 12 * facing; // increased base separation
-  const rFootX = x + rightLegBase + legSwing * 0.4 * facing - jumpLegExtension * 0.3;
-  const rKneeX = x + rightLegBase * 0.35 + legPhase * 0.15 * facing;
-  const rKneeY = hipY + 12 + legPhase * 6 - jumpLegExtension * 0.5; // signed knee bend
-  const rFootY = hipY + 20 + airSpread - jumpLegExtension;
-  
-  ctx.lineWidth = 3; // increased leg thickness
-  ctx.beginPath();
-  ctx.moveTo(x, hipY);
-  ctx.lineTo(rKneeX, rKneeY);
-  ctx.lineTo(rFootX, rFootY);
-  ctx.stroke();
-  
-  // Right foot (flat perpendicular line, 5px)
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(rFootX - 2.5, rFootY);
-  ctx.lineTo(rFootX + 2.5, rFootY);
-  ctx.stroke();
-
-  // Left leg (increased separation, keep facing for proper flip)
-  const leftLegBase = -12 * facing; // increased base separation
-  const lFootX = x + leftLegBase - legSwing * 0.4 * facing - jumpLegExtension * 0.3;
-  const lKneeX = x + leftLegBase * 0.35 - legPhase * 0.15 * facing;
-  const lKneeY = hipY + 12 - legPhase * 6 - jumpLegExtension * 0.5; // opposite signed knee bend
-  const lFootY = hipY + 20 + airSpread - jumpLegExtension;
-  
-  ctx.lineWidth = 3; // increased leg thickness
-  ctx.beginPath();
-  ctx.moveTo(x, hipY);
-  ctx.lineTo(lKneeX, lKneeY);
-  ctx.lineTo(lFootX, lFootY);
-  ctx.stroke();
-  
-  // Left foot (flat perpendicular line, 5px)
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(lFootX - 2.5, lFootY);
-  ctx.lineTo(lFootX + 2.5, lFootY);
-  ctx.stroke();
-  
-  ctx.lineWidth = 2.5; // reset line width for other elements
-
-  // ── Arms ── (idle: down at sides, swing while walking, raised while falling)
-  ctx.lineWidth = 2.5;
-
-  if (moving && onGround) {
-    // Walking swing - properly flip based on facing with smoother motion
-    const swing = Math.sin(walkCycle) * 12;
-    const rightArmX = x + 12 * facing;
-    const leftArmX = x - 12 * facing;
-    
-    ctx.beginPath();
-    ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(rightArmX, shoulderY + 5 + swing);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(leftArmX, shoulderY + 5 - swing);
-    ctx.stroke();
-  } else if (!onGround) {
-    // Jumping/falling - arms raised with different pose for rise vs fall
-    const armAngle = vy < 0 ? -20 : -10; // higher arms when rising
-    const armSpread = vy < 0 ? 14 : 10; // wider spread when rising
-    ctx.beginPath();
-    ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x + armSpread * facing, shoulderY + armAngle);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x - armSpread * facing, shoulderY + armAngle);
-    ctx.stroke();
-  } else {
-    // Idle - arms relaxed at sides (more visible)
-    ctx.lineWidth = 3; // increased thickness for visibility
-    ctx.beginPath();
-    ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x + 10, shoulderY + 28); // extended length for visibility
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, shoulderY + 5);
-    ctx.lineTo(x - 10, shoulderY + 28); // extended length for visibility
-    ctx.stroke();
-    ctx.lineWidth = 2.5; // reset line width
   }
 
   ctx.restore();
@@ -589,6 +793,7 @@ function drawHUD(
   collected: number,
   total: number,
   dead: boolean,
+  deathCause: "fall" | "spike" | "monster" | null,
   won: boolean,
   insufficientStars: boolean,
   timeUp: boolean,
@@ -596,17 +801,43 @@ function drawHUD(
   wonT: number,
   level: LevelData,
   onViewAchievements?: () => void,
+  onBack?: () => void,
+  deathT?: number,
 ) {
   if (dead) {
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.fillRect(0, 0, CW, CH);
+    const bloody = deathCause === "monster" || deathCause === "spike";
+    const t = deathT ?? 999;
+
+    if (bloody) {
+      ctx.fillStyle = "rgba(0,0,0,0.15)";
+      ctx.fillRect(0, 0, CW, CH);
+
+      const cardAlpha = Math.max(0, Math.min(1, (t - 25) / 15));
+      if (cardAlpha > 0) {
+        const cardW = 340, cardH = 110;
+        const cardX = (CW - cardW) / 2, cardY = CH / 2 - cardH / 2 - 20;
+        ctx.globalAlpha = cardAlpha;
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.fillRect(cardX, cardY, cardW, cardH);
+        ctx.strokeStyle = "rgba(110,0,0,0.5)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cardX, cardY, cardW, cardH);
+        ctx.globalAlpha = 1;
+      } else {
+        return; // wait for the blood animation before showing text
+      }
+    } else {
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillRect(0, 0, CW, CH);
+    }
+
     ctx.fillStyle = "#000";
     ctx.textAlign = "center";
-    ctx.font = "bold 48px 'Playfair Display', Georgia, serif";
-    ctx.fillText("YOU GOT SPIKED!", CW / 2, CH / 2 - 28);
+    ctx.font = "bold 34px 'Playfair Display', Georgia, serif";
+    ctx.fillText(deathCause === "monster" ? "YOU GOT BITTEN!" : "YOU GOT SPIKED!", CW / 2, CH / 2 - 28);
     ctx.font = "16px 'Outfit', sans-serif";
     ctx.fillStyle = "#555";
-    ctx.fillText("Press  R  to try again", CW / 2, CH / 2 + 18);
+    ctx.fillText("Press  R  to try again", CW / 2, CH / 2 + 6);
     return;
   }
 
@@ -652,26 +883,38 @@ function drawHUD(
       ctx.font = "18px 'Outfit', sans-serif";
       ctx.fillStyle = "#333";
       ctx.fillText(`Score: ${score}  ·  Stars: ${collected}/${total}`, CW / 2, CH / 2 + 10);
-      
-      // Draw View Achievements button on canvas
+
       if (onViewAchievements && a > 0.8) {
         const btnW = 200;
         const btnH = 44;
         const btnX = (CW - btnW) / 2;
         const btnY = CH / 2 + 50;
-        
+
         ctx.fillStyle = "#1E6FBF";
         ctx.fillRect(btnX, btnY, btnW, btnH);
         ctx.strokeStyle = "#0D4A8A";
         ctx.lineWidth = 2;
         ctx.strokeRect(btnX, btnY, btnW, btnH);
-        
+
         ctx.fillStyle = "white";
         ctx.font = "bold 15px 'Outfit', sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("View Achievements", CW / 2, btnY + 27);
+
+        // Next Level button
+        const nextBtnY = btnY + btnH + 12;
+        ctx.fillStyle = "#1E6FBF";
+        ctx.fillRect(btnX, nextBtnY, btnW, btnH);
+        ctx.strokeStyle = "#0D4A8A";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(btnX, nextBtnY, btnW, btnH);
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 15px 'Outfit', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Next Level →", CW / 2, nextBtnY + 27);
       }
-      
+
       ctx.globalAlpha = 1;
     }
     return;
@@ -724,26 +967,29 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
 
     const onCanvasClick = (e: MouseEvent) => {
       const g = gsRef.current;
-      if (g.won && onViewAchievements) {
+      if (g.won) {
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        
-        // Check if click is within the "View Achievements" button bounds
+
         const btnW = 200;
         const btnH = 44;
         const btnX = (CW - btnW) / 2;
         const btnY = CH / 2 + 50;
-        
-        // Scale coordinates if canvas is displayed at different size
+        const nextBtnY = btnY + btnH + 12;
+
         const scaleX = CW / rect.width;
         const scaleY = CH / rect.height;
         const canvasX = x * scaleX;
         const canvasY = y * scaleY;
-        
-        if (canvasX >= btnX && canvasX <= btnX + btnW && 
+
+        if (canvasX >= btnX && canvasX <= btnX + btnW &&
             canvasY >= btnY && canvasY <= btnY + btnH) {
-          onViewAchievements();
+          if (onViewAchievements) onViewAchievements();
+        }
+        if (canvasX >= btnX && canvasX <= btnX + btnW &&
+            canvasY >= nextBtnY && canvasY <= nextBtnY + btnH) {
+          onBack();
         }
       }
     };
@@ -755,10 +1001,35 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
 
     function tick() {
       const g = gsRef.current;
-      if (g.dead) return;
+
+      for (const p of g.bloodParticles) {
+        if (!p.settled) {
+          p.vy += GRAV * 0.8;
+          p.vx *= 0.995;
+          const prevY = p.y;
+          p.x += p.vx;
+          p.y += p.vy;
+          const crossed = bloodSurfacesAt(p.x, level).filter(sy => sy >= prevY - 2 && sy <= p.y + 2);
+          if (crossed.length) {
+            p.y = Math.min(...crossed);
+            p.settled = true;
+            p.vx *= 0.5;
+          }
+        } else {
+          // settled liquid still slides with momentum and re-falls if it rolls off an edge
+          p.vx *= 0.88;
+          p.x += p.vx;
+          const stillSupported = bloodSurfacesAt(p.x, level).some(sy => Math.abs(sy - p.y) < 2);
+          if (!stillSupported) { p.settled = false; p.vy = 0.5; }
+        }
+      }
+
+      if (g.dead) { g.deathT++; return; }
       if (g.won) { g.wonT++; return; }
       if (g.insufficientStars) return;
       if (g.timeUp) return;
+
+      g.frameCount++;
 
       const L = g.keys.has("ArrowLeft") || g.keys.has("KeyA");
       const R = g.keys.has("ArrowRight") || g.keys.has("KeyD");
@@ -770,14 +1041,12 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       if (Math.abs(g.vx) < 0.08) g.vx = 0;
 
       if (J && g.onGround) { g.vy = JUMP_V; g.onGround = false; }
-      // Apply gravity with easing at jump peak for Mario-like hang
-      const peakEasing = Math.abs(g.vy) < 2 ? 0.3 : 1; // Reduce gravity near peak
+      const peakEasing = Math.abs(g.vy) < 2 ? 0.3 : 1;
       g.vy = Math.min(g.vy + GRAV * peakEasing, 16);
 
       if (g.onGround && Math.abs(g.vx) > 0.2) g.walkF++;
       else if (!g.onGround) g.walkF++;
 
-      // ── Move X then resolve ──
       g.px += g.vx;
       g.px = Math.max(PW + 10, g.px);
 
@@ -791,7 +1060,6 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
         }
       }
 
-      // ── Move Y then resolve ──
       g.py += g.vy;
       g.onGround = false;
 
@@ -801,41 +1069,71 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
         const prevFeet = g.py - g.vy;
         const prevHead = prevFeet - PH;
 
-        // Floor landing
         if (g.vy > 0 && prevFeet <= p.y && g.py >= p.y) {
           g.py = p.y; g.vy = 0; g.onGround = true;
         }
-        // Ceiling bump
         if (g.vy < 0 && prevHead >= p.y + p.h && (g.py - PH) <= p.y + p.h) {
           g.py = p.y + p.h + PH; g.vy = 1;
         }
       }
 
-      // ── Stars ──
       for (const c of g.coins) {
         if (!c.col && Math.abs(g.px - c.x) < 20 && Math.abs((g.py - PH / 2) - c.y) < 22) {
           c.col = true; g.score += 10;
         }
       }
 
-      // ── Death / win ──
-      if (g.py > CH + 80) g.dead = true;
-      
-      // Check spike collision
+      if (g.py > CH + 80) { g.dead = true; g.deathCause = "fall"; }
+
       for (const spike of level.spikes) {
         const playerBottom = g.py;
         const playerTop = g.py - PH;
         const playerLeft = g.px - PW;
         const playerRight = g.px + PW;
-        
-        // More precise collision - check if player's body overlaps spike area
-        // Allow small tolerance for feet touching spike tips
+
         const spikeTop = spike.y;
         const spikeBottom = spike.y + spike.h;
-        
+
         if (playerRight > spike.x + 2 && playerLeft < spike.x + spike.w - 2 &&
             playerBottom > spikeTop + 5 && playerTop < spikeBottom) {
           g.dead = true;
+          g.deathCause = "spike";
+          // Spawn blood particles at wound position
+          const woundY = Math.min(playerBottom, spikeTop + spike.h / 2);
+          for (let i = 0; i < 15; i++) {
+            g.bloodParticles.push({
+              x: g.px + (Math.random() - 0.5) * 10,
+              y: woundY,
+              vx: (Math.random() - 0.5) * 4,
+              vy: -Math.random() * 3,
+              settled: false,
+              r: 6 + Math.random() * 4
+            });
+          }
+        }
+      }
+
+      for (const m of level.monsters) {
+        const hb = monsterHitbox(m, g.frameCount);
+        if (hb.ext < 0.6) continue; // not emerged enough to bite yet
+        const playerLeft = g.px - PW, playerRight = g.px + PW;
+        const playerTop = g.py - PH, playerBottom = g.py;
+        if (playerRight > hb.left && playerLeft < hb.right &&
+            playerBottom > hb.top && playerTop < hb.bottom) {
+          g.dead = true;
+          g.deathCause = "monster";
+          // Spawn blood particles at wound position (monster mouth area)
+          const woundY = Math.min(playerBottom, (hb.top + hb.bottom) / 2);
+          for (let i = 0; i < 18; i++) {
+            g.bloodParticles.push({
+              x: g.px + (Math.random() - 0.5) * 12,
+              y: woundY,
+              vx: (Math.random() - 0.5) * 5,
+              vy: -Math.random() * 4,
+              settled: false,
+              r: 6 + Math.random() * 4
+            });
+          }
         }
       }
       if (g.px > level.winX && !g.won) {
@@ -844,18 +1142,16 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
           g.won = true;
           onLevelComplete(levelId);
         } else {
-          g.insufficientStars = true; // Flag to show retry message
+          g.insufficientStars = true;
         }
       }
 
-      // ── Timer ──
-      g.timeRemaining -= 1 / 60; // Decrement by 1/60 second per frame (assuming 60fps)
+      g.timeRemaining -= 1 / 60;
       if (g.timeRemaining <= 0) {
         g.timeRemaining = 0;
         g.timeUp = true;
       }
 
-      // ── Camera ──
       const tCam = g.px - CW * 0.33;
       g.camX += (tCam - g.camX) * 0.1;
       g.camX = Math.max(0, g.camX);
@@ -865,11 +1161,9 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       const g = gsRef.current;
       ctx.clearRect(0, 0, CW, CH);
 
-      // White background
       ctx.fillStyle = level.theme.bg;
       ctx.fillRect(0, 0, CW, CH);
 
-      // Dot-grid sky
       ctx.fillStyle = level.theme.skyDot;
       for (let gx = 16; gx < CW; gx += 40) {
         for (let gy = 16; gy < CH; gy += 40) {
@@ -883,14 +1177,18 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       ctx.translate(-Math.round(g.camX), 0);
 
       drawPlatforms(ctx, g.camX, level);
-      
-      // Draw spikes
+
       for (const spike of level.spikes) {
         if (spike.x + spike.w < g.camX - 20 || spike.x > g.camX + CW + 20) continue;
         drawSpike(ctx, spike);
       }
-      
+
       drawFlag(ctx, level.flagX, level.groundY);
+
+      for (const m of level.monsters) {
+        if (m.pipeX < g.camX - 60 || m.pipeX > g.camX + CW + 60) continue;
+        drawMonster(ctx, m, g.frameCount);
+      }
 
       for (const c of g.coins) {
         if (c.col || c.x < g.camX - 40 || c.x > g.camX + CW + 40) continue;
@@ -904,10 +1202,71 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
         level.groundY,
       );
 
+      // Draw blood particles with proximity-based clustering
+      if (g.bloodParticles.length > 0) {
+        const visibleParticles = g.bloodParticles.filter(p => p.x >= g.camX - 40 && p.x <= g.camX + CW + 40);
+
+        // Group settled particles into clusters for pool fusion
+        const settled = visibleParticles.filter(p => p.settled);
+        const clusters: BloodParticle[][] = [];
+        const visited = new Set<number>();
+
+        for (let i = 0; i < settled.length; i++) {
+          if (visited.has(i)) continue;
+          const cluster = [settled[i]];
+          visited.add(i);
+
+          for (let j = i + 1; j < settled.length; j++) {
+            if (visited.has(j)) continue;
+            const dx = settled[i].x - settled[j].x;
+            const dy = settled[i].y - settled[j].y;
+            if (Math.sqrt(dx * dx + dy * dy) < 25) {
+              cluster.push(settled[j]);
+              visited.add(j);
+            }
+          }
+          clusters.push(cluster);
+        }
+
+        // Draw soft pool base for each cluster
+        for (const cluster of clusters) {
+          const avgX = cluster.reduce((sum, p) => sum + p.x, 0) / cluster.length;
+          const avgY = cluster.reduce((sum, p) => sum + p.y, 0) / cluster.length;
+          const maxR = Math.max(...cluster.map(p => p.r));
+          const poolR = maxR + 8;
+
+          const poolGrad = ctx.createRadialGradient(avgX, avgY, 0, avgX, avgY, poolR);
+          poolGrad.addColorStop(0, 'rgba(102,0,0,0.85)');
+          poolGrad.addColorStop(1, 'rgba(60,0,0,0)');
+          ctx.fillStyle = poolGrad;
+          ctx.beginPath();
+          ctx.ellipse(avgX, avgY, poolR, poolR * 0.4, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Draw individual particles with state-based shapes
+        for (const p of visibleParticles) {
+          ctx.fillStyle = '#660000';
+          ctx.beginPath();
+
+          if (p.settled) {
+            // Flattened puddle shape
+            ctx.ellipse(p.x, p.y, p.r, p.r * 0.4, 0, 0, Math.PI * 2);
+          } else {
+            // Stretch based on velocity for teardrop effect
+            const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            const stretch = 1 + speed * 0.08;
+            const angle = Math.atan2(p.vy, p.vx);
+            ctx.ellipse(p.x, p.y, p.r * stretch, p.r, angle, 0, Math.PI * 2);
+          }
+          ctx.fill();
+        }
+      }
+
       ctx.restore();
 
       const collected = g.coins.filter(c => c.col).length;
-      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.won, g.insufficientStars, g.timeUp, g.timeRemaining, g.wonT, level, onViewAchievements);
+      drawHUD(ctx, g.score, collected, level.coins.length, g.dead, g.deathCause, g.won, g.insufficientStars, g.timeUp, g.timeRemaining, g.wonT, level, onViewAchievements, onBack, g.deathT);
     }
 
     function loop() {
@@ -926,7 +1285,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       window.removeEventListener("keyup", onKU);
       canvas.removeEventListener("click", onCanvasClick);
     };
-  }, [level, onLevelComplete, onViewAchievements]);
+  }, [level, onLevelComplete, onViewAchievements, onBack]);
 
   return (
     <div style={{
@@ -935,7 +1294,6 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       fontFamily: "'Outfit', sans-serif", padding: 24,
     }}>
       <div style={{ width: CW, maxWidth: "100%" }}>
-        {/* Top bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <button onClick={onBack} style={{
             padding: "7px 16px", background: "white", border: "1px solid #1E6FBF28",
@@ -951,7 +1309,6 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
           </div>
         </div>
 
-        {/* Canvas */}
         <canvas
           ref={canvasRef}
           width={CW}

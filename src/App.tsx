@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import Home from "./pages/Home";
 import GameLevels from "./pages/GameLevels";
 import PlatformerGame from "./pages/PlatformerGame";
+import RunnerGame from "./pages/RunnerGame";
 
 type Page = "home" | "levels" | "game";
 
@@ -26,12 +27,20 @@ export default function App() {
         />
       )}
       {page === "game" && (
-        <PlatformerGame 
-          onBack={() => setPage("levels")} 
-          levelId={selectedLevelId}
-          onLevelComplete={handleLevelComplete}
-          onViewAchievements={() => setPage("home")}
-        />
+        selectedLevelId === 2 ? (
+          <RunnerGame
+            onBack={() => setPage("levels")}
+            onLevelComplete={handleLevelComplete}
+            onViewAchievements={() => setPage("home")}
+          />
+        ) : (
+          <PlatformerGame
+            onBack={() => setPage("levels")}
+            levelId={selectedLevelId}
+            onLevelComplete={handleLevelComplete}
+            onViewAchievements={() => setPage("home")}
+          />
+        )
       )}
     </div>
   );
