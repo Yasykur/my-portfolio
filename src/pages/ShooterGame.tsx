@@ -782,8 +782,14 @@ export default function ShooterGame({
 
             if (g.bossHp <= 0) {
               g.bossHp = 0;
-              g.won = true;
-              onLevelComplete(3);
+              if (!g.droppedMedal) {
+                g.droppedMedal = {
+                  x: g.bossX,
+                  y: g.bossY,
+                  vy: 0,
+                  collected: false,
+                };
+              }
             }
           }
         }
@@ -805,6 +811,21 @@ export default function ShooterGame({
             break;
           }
         }
+
+      // ── Dropped Medal Logic ──
+      if (g.droppedMedal && !g.droppedMedal.collected) {
+        g.droppedMedal.vy = Math.min(g.droppedMedal.vy + 0.05, 1.5);
+        g.droppedMedal.y += g.droppedMedal.vy;
+        g.droppedMedal.x -= 0.5;
+
+        // Player collision with dropped medal
+        const dx = g.px - g.droppedMedal.x;
+        const dy = g.py - g.droppedMedal.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 30 && !g.won) {
+          g.droppedMedal.collected = true;
+          setShowMedalReveal(true);
+        }
+      }
 
         // Player vs Enemy Projectile
         for (const ep of g.enemyProjectiles) {
@@ -893,6 +914,11 @@ export default function ShooterGame({
         drawBoss(ctx, g.bossX, g.bossY, g.bossHp, g.frameCount);
       }
 
+      // Draw Dropped Medal
+      if (g.droppedMedal && !g.droppedMedal.collected) {
+        drawInWorldMedal(ctx, g.droppedMedal.x, g.droppedMedal.y, g.frameCount);
+      }
+
       // Draw Boss Letters
       ctx.font = "bold 22px 'Outfit', sans-serif";
       ctx.textAlign = "center";
@@ -949,8 +975,20 @@ export default function ShooterGame({
         justifyContent: "center",
         fontFamily: "'Outfit', sans-serif",
         padding: 24,
+        position: "relative",
       }}
     >
+      {showMedalReveal && (
+        <MedalReveal
+          logoSrc="/logos/cbtl.png"
+          label="Coffee Bean & Tea Leaf Brunei"
+          onComplete={() => {
+            setShowMedalReveal(false);
+            gsRef.current.won = true;
+            onLevelComplete(3);
+          }}
+        />
+      )}
       <div style={{ width: CW, maxWidth: "100%" }}>
         <div
           style={{
