@@ -67,6 +67,8 @@ interface GS {
   frameCount: number;
   shootCooldown: number;
   keys: Set<string>;
+  difficulty: "easy" | "hard" | null;
+  started: boolean;
 }
 
 function freshState(): GS {
@@ -91,6 +93,8 @@ function freshState(): GS {
     frameCount: 0,
     shootCooldown: 0,
     keys: new Set(),
+    difficulty: null,
+    started: false,
   };
 }
 
@@ -330,6 +334,51 @@ function drawBoss(ctx: CanvasRenderingContext2D, bossX: number, bossY: number, b
   ctx.restore();
 }
 
+// Draw Start Screen (Difficulty Selection)
+function drawStartScreen(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = "rgba(250, 245, 255, 0.92)";
+  ctx.fillRect(0, 0, CW, CH);
+
+  ctx.fillStyle = "#4c1d95";
+  ctx.textAlign = "center";
+  ctx.font = "bold 38px 'Playfair Display', Georgia, serif";
+  ctx.fillText("Select Difficulty", CW / 2, CH / 2 - 50);
+
+  ctx.font = "16px 'Outfit', sans-serif";
+  ctx.fillStyle = "#6d28d9";
+  ctx.fillText("Choose your space challenge level", CW / 2, CH / 2 - 12);
+
+  const btnW = 160;
+  const btnH = 48;
+  const btnY = CH / 2 + 20;
+  const easyX = CW / 2 - btnW - 15;
+  const hardX = CW / 2 + 15;
+
+  // Easy Button
+  ctx.fillStyle = "#7c3aed";
+  ctx.fillRect(easyX, btnY, btnW, btnH);
+  ctx.strokeStyle = "#5b21b6";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(easyX, btnY, btnW, btnH);
+
+  ctx.fillStyle = "white";
+  ctx.font = "bold 16px 'Outfit', sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Easy", easyX + btnW / 2, btnY + 29);
+
+  // Hard Button
+  ctx.fillStyle = "#7c3aed";
+  ctx.fillRect(hardX, btnY, btnW, btnH);
+  ctx.strokeStyle = "#5b21b6";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(hardX, btnY, btnW, btnH);
+
+  ctx.fillStyle = "white";
+  ctx.font = "bold 16px 'Outfit', sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Hard", hardX + btnW / 2, btnY + 29);
+}
+
 // Draw HUD
 function drawHUD(
   ctx: CanvasRenderingContext2D,
@@ -340,6 +389,7 @@ function drawHUD(
   dead: boolean,
   won: boolean,
   wonT: number,
+  difficulty: "easy" | "hard" | null,
   onViewAchievements?: () => void,
 ) {
   if (dead) {
@@ -442,7 +492,8 @@ function drawHUD(
 
   ctx.textAlign = "right";
   ctx.font = "bold 13px 'Outfit', sans-serif";
-  ctx.fillText(`Level 3`, CW - 16, 23);
+  const diffLabel = difficulty === "easy" ? "Easy Mode" : difficulty === "hard" ? "Hard Mode" : "";
+  ctx.fillText(`Level 3 · ${diffLabel}`, CW - 16, 23);
 }
 
 export default function ShooterGame({
@@ -480,21 +531,41 @@ export default function ShooterGame({
 
     const onCanvasClick = (e: MouseEvent) => {
       const g = gsRef.current;
-      if (g.won) {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
 
+      const scaleX = CW / rect.width;
+      const scaleY = CH / rect.height;
+      const canvasX = x * scaleX;
+      const canvasY = y * scaleY;
+
+      if (!g.started) {
+        const btnW = 160;
+        const btnH = 48;
+        const btnY = CH / 2 + 20;
+        const easyX = CW / 2 - btnW - 15;
+        const hardX = CW / 2 + 15;
+
+        if (canvasX >= easyX && canvasX <= easyX + btnW &&
+            canvasY >= btnY && canvasY <= btnY + btnH) {
+          g.difficulty = "easy";
+          g.started = true;
+        }
+        if (canvasX >= hardX && canvasX <= hardX + btnW &&
+            canvasY >= btnY && canvasY <= btnY + btnH) {
+          g.difficulty = "hard";
+          g.started = true;
+        }
+        return;
+      }
+
+      if (g.won) {
         const btnW = 200;
         const btnH = 44;
         const btnX = (CW - btnW) / 2;
         const btnY = CH / 2 + 110;
         const nextBtnY = btnY + btnH + 12;
-
-        const scaleX = CW / rect.width;
-        const scaleY = CH / rect.height;
-        const canvasX = x * scaleX;
-        const canvasY = y * scaleY;
 
         if (canvasX >= btnX && canvasX <= btnX + btnW &&
             canvasY >= btnY && canvasY <= btnY + btnH) {
@@ -517,6 +588,7 @@ export default function ShooterGame({
 
     function tick() {
       const g = gsRef.current;
+      if (!g.started) return;
       if (g.dead) return;
       if (g.won) {
         g.wonT++;
@@ -578,10 +650,15 @@ export default function ShooterGame({
 
       // ── Minor Aliens Spawning & Movement ──
       if (!g.bossSpawned) {
-        if (g.frameCount % 50 === 0 && g.aliens.length < 5) {
+        const spawnInterval = g.difficulty === "easy" ? 70 : 50;
+        if (g.frameCount % spawnInterval === 0 && g.aliens.length < 5) {
           alienIdCounter++;
           const variant = Math.floor(Math.random() * 3);
           const startY = 40 + Math.random() * (CH - 80);
+          const initialShootTimer = g.difficulty === "easy"
+            ? 130 + Math.floor(Math.random() * 90)
+            : 90 + Math.floor(Math.random() * 60);
+
           g.aliens.push({
             id: alienIdCounter,
             x: CW + 30,
@@ -592,7 +669,7 @@ export default function ShooterGame({
             r: 16,
             variant,
             hp: 1,
-            shootTimer: 60 + Math.floor(Math.random() * 60),
+            shootTimer: initialShootTimer,
           });
         }
 
@@ -605,13 +682,17 @@ export default function ShooterGame({
           // Alien shooting
           alien.shootTimer--;
           if (alien.shootTimer <= 0) {
-            alien.shootTimer = 90 + Math.floor(Math.random() * 60);
+            alien.shootTimer = g.difficulty === "easy"
+              ? 130 + Math.floor(Math.random() * 90)
+              : 90 + Math.floor(Math.random() * 60);
+
             const angle = Math.atan2(g.py - alien.y, g.px - alien.x);
+            const projSpeed = g.difficulty === "easy" ? 2.5 : 4;
             g.enemyProjectiles.push({
               x: alien.x,
               y: alien.y,
-              vx: Math.cos(angle) * 4,
-              vy: Math.sin(angle) * 4,
+              vx: Math.cos(angle) * projSpeed,
+              vy: Math.sin(angle) * projSpeed,
               r: 4,
             });
           }
@@ -626,14 +707,17 @@ export default function ShooterGame({
         g.bossY = bossCenterY;
 
         // Boss throws letters ("LIFE PROBLEM" without space)
-        if (g.bossTimer % 36 === 0) {
+        const letterInterval = g.difficulty === "easy" ? 55 : 36;
+        if (g.bossTimer % letterInterval === 0) {
           letterIdCounter++;
           const letters = ["L", "I", "F", "E", "P", "R", "O", "B", "L", "E", "M"];
           const char = letters[Math.floor(Math.random() * letters.length)];
           const targetAngle = Math.atan2(g.py - g.bossY, g.px - g.bossX);
           const spread = (Math.random() - 0.5) * 0.4;
           const finalAngle = targetAngle + spread;
-          const speed = 3.5 + Math.random() * 1.5;
+          const speed = g.difficulty === "easy"
+            ? 2 + Math.random() * 1
+            : 3.5 + Math.random() * 1.5;
 
           g.bossLetters.push({
             id: letterIdCounter,
@@ -774,6 +858,11 @@ export default function ShooterGame({
         }
       }
 
+      if (!g.started) {
+        drawStartScreen(ctx);
+        return;
+      }
+
       // Draw Lasers
       ctx.fillStyle = "#a855f7";
       ctx.strokeStyle = "#7c3aed";
@@ -829,7 +918,7 @@ export default function ShooterGame({
       }
 
       // HUD
-      drawHUD(ctx, g.hp, g.kills, g.bossSpawned, g.bossHp, g.dead, g.won, g.wonT, onViewAchievements);
+      drawHUD(ctx, g.hp, g.kills, g.bossSpawned, g.bossHp, g.dead, g.won, g.wonT, g.difficulty, onViewAchievements);
     }
 
     function loop() {
