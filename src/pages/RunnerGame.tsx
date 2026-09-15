@@ -282,34 +282,84 @@ function drawObstacle(ctx: CanvasRenderingContext2D, obs: Obstacle, frameCount: 
   ctx.restore();
 }
 
-function drawInWorldMedal(ctx: CanvasRenderingContext2D, x: number, y: number, frameCount: number) {
+function drawInWorldMedal(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  frameCount: number,
+  logoImg: HTMLImageElement | null
+) {
   ctx.save();
   ctx.translate(x, y);
 
   const scaleX = Math.abs(Math.sin(frameCount * 0.08));
   ctx.scale(scaleX, 1);
 
-  // Gold outer circle
+  const R = 16;
+
+  // Outer gold base with shadow
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+
   ctx.beginPath();
-  ctx.arc(0, 0, 16, 0, Math.PI * 2);
-  ctx.fillStyle = "#d4a017";
+  ctx.arc(0, 0, R, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbbf24";
   ctx.fill();
-  ctx.strokeStyle = "#92400e";
+  ctx.restore();
+
+  // Draw logo image clipped inside circle if ready
+  if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, R - 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.drawImage(logoImg, -(R - 2), -(R - 2), (R - 2) * 2, (R - 2) * 2);
+    ctx.restore();
+  } else {
+    // Inner accent fallback
+    ctx.beginPath();
+    ctx.arc(0, 0, R - 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#fbbf24";
+    ctx.fill();
+
+    ctx.fillStyle = "#92400e";
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("★", 0, 0);
+  }
+
+  // Radial gradient shine overlay
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, R - 1, 0, Math.PI * 2);
+  ctx.clip();
+
+  const shineGrad = ctx.createRadialGradient(-R * 0.35, -R * 0.35, 1, -R * 0.1, -R * 0.1, R * 1.3);
+  shineGrad.addColorStop(0, "rgba(255, 255, 255, 0.65)");
+  shineGrad.addColorStop(0.4, "rgba(255, 255, 255, 0.2)");
+  shineGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = shineGrad;
+  ctx.fill();
+  ctx.restore();
+
+  // Thin gold rim stroke
+  ctx.beginPath();
+  ctx.arc(0, 0, R, 0, Math.PI * 2);
+  ctx.strokeStyle = "#d4a017";
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
-  // Inner accent circle
   ctx.beginPath();
-  ctx.arc(0, 0, 10, 0, Math.PI * 2);
-  ctx.fillStyle = "#fbbf24";
-  ctx.fill();
-
-  // Center star
-  ctx.fillStyle = "#92400e";
-  ctx.font = "bold 11px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("★", 0, 0);
+  ctx.arc(0, 0, R - 1, 0, Math.PI * 2);
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -493,8 +543,18 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gsRef = useRef<GS>(freshState());
   const rafRef = useRef(0);
+  const logoRef = useRef<HTMLImageElement | null>(null);
   const [won, setWon] = useState(false);
   const [showMedalReveal, setShowMedalReveal] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/images/logos/muara.png";
+    img.onerror = () => {
+      img.src = "/logos/muara.png";
+    };
+    logoRef.current = img;
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -729,7 +789,7 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
 
       // Draw approaching medal if auto-running
       if (g.autoRunning || g.medalX > 0) {
-        drawInWorldMedal(ctx, g.medalX, GROUND_Y - 35, g.frameCount);
+        drawInWorldMedal(ctx, g.medalX, GROUND_Y - 35, g.frameCount, logoRef.current);
       }
 
       // Draw player (or ragdoll if dead)
@@ -769,7 +829,7 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
     }}>
       {showMedalReveal && (
         <MedalReveal
-          logoSrc="/logos/muara.png"
+          logoSrc="/images/logos/muara.png"
           label="Muara International Fish Landing"
           onComplete={() => {
             setShowMedalReveal(false);
