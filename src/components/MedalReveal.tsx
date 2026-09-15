@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 interface MedalRevealProps {
@@ -9,37 +9,17 @@ interface MedalRevealProps {
 
 export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [textureReady, setTextureReady] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const container = containerRef.current;
     if (!container) return;
 
-    const width = 400;
-    const height = 400;
+    const width = 340;
+    const height = 340;
 
-    // ── Three.js Scene Setup ──
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0, 4.5);
-
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
-
-    // ── Lighting ──
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xfff5ea, 1.8);
-    directionalLight.position.set(5, 5, 5);
-    scene.add(directionalLight);
-
-    const backLight = new THREE.DirectionalLight(0xd4a017, 0.8);
-    backLight.position.set(-5, -5, -2);
-    scene.add(backLight);
-
-    // ── Offscreen Texture Generation ──
+    // ── Offscreen Texture Canvas ──
     const offCanvas = document.createElement("canvas");
     offCanvas.width = 512;
     offCanvas.height = 512;
@@ -58,10 +38,10 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
       ctx.fillStyle = "#b48011";
       ctx.fill();
 
-      // Inner face circle
+      // Inner face circle background
       ctx.beginPath();
       ctx.arc(256, 256, 225, 0, Math.PI * 2);
-      ctx.fillStyle = "#1e3a8a"; // Navy background tint for face
+      ctx.fillStyle = "#ffffff";
       ctx.fill();
 
       ctx.lineWidth = 10;
@@ -76,7 +56,12 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
         ctx.drawImage(image, 41, 41, 430, 440);
         ctx.restore();
       } else {
-        // Fallback: draw gold letter
+        // Fallback face (Navy circle + Gold initial)
+        ctx.beginPath();
+        ctx.arc(256, 256, 215, 0, Math.PI * 2);
+        ctx.fillStyle = "#1e3a8a";
+        ctx.fill();
+
         const initial = (label && label.trim().length > 0 ? label.trim()[0] : "A").toUpperCase();
         ctx.font = "900 200px 'Playfair Display', Georgia, serif";
         ctx.textAlign = "center";
@@ -84,7 +69,6 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
         ctx.fillStyle = "#fbbf24";
         ctx.fillText(initial, 256, 260);
 
-        // Inner ring accent
         ctx.beginPath();
         ctx.arc(256, 256, 210, 0, Math.PI * 2);
         ctx.lineWidth = 4;
@@ -93,80 +77,128 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
       }
     }
 
-    drawCoinFace();
-
     const canvasTexture = new THREE.CanvasTexture(offCanvas);
     canvasTexture.colorSpace = THREE.SRGBColorSpace;
 
+    // Load image before setting up 3D scene & starting animation
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    const initScene = () => {
+      if (!isMounted) return;
+      setTextureReady(true);
+
+      // ── Three.js Scene Setup ──
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      camera.position.set(0, 0, 4.2);
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      // Clean any existing canvas before appending
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+      container.appendChild(renderer.domElement);
+
+      // ── Enhanced Bright Lighting ──
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xfff5ea, 2.5);
+      directionalLight.position.set(5, 5, 5);
+      scene.add(directionalLight);
+
+      const fillLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      fillLight.position.set(-5, 3, 5);
+      scene.add(fillLight);
+
+      const frontLight = new THREE.DirectionalLight(0xffffff, 1.5);
+      frontLight.position.set(0, 0, 6);
+      scene.add(frontLight);
+
+      const backLight = new THREE.DirectionalLight(0xd4a017, 1.0);
+      backLight.position.set(-5, -5, -2);
+      scene.add(backLight);
+
+      // ── Coin Geometry & Materials ──
+      const geometry = new THREE.CylinderGeometry(1.2, 1.2, 0.15, 48);
+
+      const sideMaterial = new THREE.MeshStandardMaterial({
+        color: 0xd4a017,
+        metalness: 0.8,
+        roughness: 0.3,
+      });
+
+      const faceMaterial = new THREE.MeshStandardMaterial({
+        map: canvasTexture,
+        metalness: 0.0,
+        roughness: 0.25,
+      });
+
+      const coin = new THREE.Mesh(geometry, [sideMaterial, faceMaterial, faceMaterial]);
+      coin.rotation.x = Math.PI / 2;
+      scene.add(coin);
+
+      // ── Animation Loop ──
+      let animationFrameId: number;
+      const startTime = performance.now();
+
+      function animate(currentTime: number) {
+        const t = currentTime - startTime;
+
+        coin.rotation.y += 0.05;
+        coin.rotation.x = Math.PI / 2 + Math.sin(t * 0.002) * 0.15;
+
+        renderer.render(scene, camera);
+        animationFrameId = requestAnimationFrame(animate);
+      }
+
+      animationFrameId = requestAnimationFrame(animate);
+
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        geometry.dispose();
+        sideMaterial.dispose();
+        faceMaterial.dispose();
+        canvasTexture.dispose();
+        renderer.dispose();
+        if (renderer.domElement.parentNode) {
+          renderer.domElement.parentNode.removeChild(renderer.domElement);
+        }
+      };
+    };
+
+    let cleanupScene: (() => void) | undefined;
+
     if (logoSrc) {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
       img.onload = () => {
         drawCoinFace(img);
         canvasTexture.needsUpdate = true;
+        cleanupScene = initScene();
       };
       img.onerror = () => {
         drawCoinFace();
         canvasTexture.needsUpdate = true;
+        cleanupScene = initScene();
       };
       img.src = logoSrc;
+    } else {
+      drawCoinFace();
+      canvasTexture.needsUpdate = true;
+      cleanupScene = initScene();
     }
 
-    // ── Coin Geometry & Materials ──
-    const geometry = new THREE.CylinderGeometry(1.2, 1.2, 0.15, 48);
-
-    const sideMaterial = new THREE.MeshStandardMaterial({
-      color: 0xd4a017,
-      metalness: 0.85,
-      roughness: 0.25,
-    });
-
-    const faceMaterial = new THREE.MeshStandardMaterial({
-      map: canvasTexture,
-      metalness: 0.85,
-      roughness: 0.25,
-    });
-
-    // CylinderGeometry materials: [side, top, bottom]
-    const coin = new THREE.Mesh(geometry, [sideMaterial, faceMaterial, faceMaterial]);
-    coin.rotation.x = Math.PI / 2;
-    scene.add(coin);
-
-    // ── Animation Loop ──
-    let animationFrameId: number;
-    const startTime = performance.now();
-
-    function animate(currentTime: number) {
-      const t = currentTime - startTime;
-
-      coin.rotation.y += 0.05;
-      coin.rotation.x = Math.PI / 2 + Math.sin(t * 0.002) * 0.15;
-
-      renderer.render(scene, camera);
-      animationFrameId = requestAnimationFrame(animate);
-    }
-
-    animationFrameId = requestAnimationFrame(animate);
-
-    // ── Timer for Completion ──
     const timerId = setTimeout(() => {
       onComplete();
     }, 2500);
 
-    // ── Cleanup ──
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      isMounted = false;
       clearTimeout(timerId);
-
-      geometry.dispose();
-      sideMaterial.dispose();
-      faceMaterial.dispose();
-      canvasTexture.dispose();
-      renderer.dispose();
-
-      if (renderer.domElement.parentNode) {
-        renderer.domElement.parentNode.removeChild(renderer.domElement);
-      }
+      if (cleanupScene) cleanupScene();
     };
   }, [logoSrc, label, onComplete]);
 
@@ -175,24 +207,26 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(6px)",
+        backgroundColor: "rgba(0, 0, 0, 0.82)",
+        backdropFilter: "blur(8px)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 1000,
+        zIndex: 10000,
         animation: "fadeIn 0.3s ease-out",
       }}
     >
       <div
         ref={containerRef}
         style={{
-          width: 400,
-          height: 400,
+          width: 340,
+          height: 340,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          opacity: textureReady ? 1 : 0,
+          transition: "opacity 0.2s ease-in",
         }}
       />
 
@@ -200,8 +234,10 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
         style={{
           textAlign: "center",
           color: "white",
-          marginTop: -20,
+          marginTop: 24,
           fontFamily: "'Outfit', sans-serif",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         <div
@@ -211,7 +247,7 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
             color: "#f59e0b",
             fontWeight: 700,
             textTransform: "uppercase",
-            marginBottom: 6,
+            marginBottom: 8,
           }}
         >
           Achievement Unlocked!

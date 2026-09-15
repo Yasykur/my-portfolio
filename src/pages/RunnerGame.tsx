@@ -295,7 +295,7 @@ function drawInWorldMedal(
   const scaleX = Math.abs(Math.sin(frameCount * 0.08));
   ctx.scale(scaleX, 1);
 
-  const R = 16;
+  const R = 15;
 
   // Outer gold base with shadow
   ctx.save();
@@ -328,7 +328,7 @@ function drawInWorldMedal(
     ctx.fill();
 
     ctx.fillStyle = "#92400e";
-    ctx.font = "bold 11px sans-serif";
+    ctx.font = "bold 10px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("★", 0, 0);
@@ -352,7 +352,7 @@ function drawInWorldMedal(
   ctx.beginPath();
   ctx.arc(0, 0, R, 0, Math.PI * 2);
   ctx.strokeStyle = "#d4a017";
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   ctx.beginPath();
@@ -478,23 +478,11 @@ function drawHUD(
       ctx.fillStyle = "#333";
       ctx.fillText("Survived 25 seconds!", CW / 2, CH / 2 + 10);
 
-      // Placeholder badge
-      const badgeR = 40;
-      const badgeX = CW / 2;
-      const badgeY = CH / 2 + 50;
-      ctx.beginPath();
-      ctx.arc(badgeX, badgeY, badgeR, 0, Math.PI * 2);
-      ctx.fillStyle = "#d4a017";
-      ctx.fill();
-      ctx.strokeStyle = "#92400e";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
       if (onViewAchievements && a > 0.8) {
         const btnW = 200;
         const btnH = 44;
         const btnX = (CW - btnW) / 2;
-        const btnY = CH / 2 + 110;
+        const btnY = CH / 2 + 50;
 
         ctx.fillStyle = "#1E6FBF";
         ctx.fillRect(btnX, btnY, btnW, btnH);
@@ -589,7 +577,7 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
         const btnW = 200;
         const btnH = 44;
         const btnX = (CW - btnW) / 2;
-        const btnY = CH / 2 + 110;
+        const btnY = CH / 2 + 50;
         const nextBtnY = btnY + btnH + 12;
 
         const scaleX = CW / rect.width;
