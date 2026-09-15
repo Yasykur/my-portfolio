@@ -3,41 +3,40 @@ import { useState } from "react";
 const C = "#1E6FBF";
 const CD = "#0D4A8A";
 const CL = "#5B9FD6";
-const CP = "#E8F2FB";
 
 const LEVELS = [
   {
     id: 1,
-    name: "TechCorp Inc.",
-    subtitle: "Senior Frontend Developer",
+    name: "Cosmopolitan College Brunei",
+    subtitle: "College Journey",
     description: "Built the core frontend architecture for the company's flagship product. Led the migration to React and implemented a component library used across 5 products.",
     difficulty: "Beginner",
     tasks: 8,
     xp: 200,
     locked: false,
-    icon: "◈",
+    logo: "/images/logos/cosmopolitan.png",
   },
   {
     id: 2,
-    name: "DesignStudio",
-    subtitle: "UI/UX Designer",
+    name: "Muara International Fish Landing",
+    subtitle: "Early Career",
     description: "Designed user experiences for 20+ client projects. Created design systems and conducted user research that improved conversion rates by 40%.",
     difficulty: "Intermediate",
     tasks: 12,
     xp: 450,
     locked: true,
-    icon: "⬡",
+    logo: "/images/logos/muara.png",
   },
   {
     id: 3,
-    name: "StartupXYZ",
-    subtitle: "Full Stack Engineer",
+    name: "Coffee Bean & Tea Leaf Brunei",
+    subtitle: "AI Assistant",
     description: "Joined as an early engineer and built the entire product from scratch. Architected the backend, implemented the frontend, and deployed to production.",
     difficulty: "Advanced",
     tasks: 16,
     xp: 750,
     locked: true,
-    icon: "⟳",
+    logo: "/images/logos/cbtl.png",
   },
 ];
 
@@ -58,6 +57,9 @@ export default function GameLevels({ onBack, onStartGame, onLevelComplete, achie
     locked: level.id === 1 ? false : !achievements.has(level.id - 1)
   }));
 
+  // Functional XP sum based on completed achievements
+  const totalXP = LEVELS.filter(level => achievements.has(level.id)).reduce((sum, level) => sum + level.xp, 0);
+
   if (started !== null) {
     return <LevelStarted level={LEVELS[started - 1]} onBack={() => setStarted(null)} onBegin={() => onStartGame(started)} />;
   }
@@ -65,37 +67,32 @@ export default function GameLevels({ onBack, onStartGame, onLevelComplete, achie
   return (
     <div style={{ minHeight: "100vh", background: "#f3f7fc", fontFamily: "'Outfit', sans-serif", color: "#0a0a0a" }}>
 
-      {/* Header */}
-      <div style={{ background: "white", borderBottom: `1px solid ${C}20`, padding: "0 32px", boxShadow: "0 1px 12px rgba(30,111,191,0.07)" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", gap: 20, height: 68 }}>
-          <button onClick={onBack} style={{
-            background: "transparent", border: `1px solid ${C}30`, color: C,
-            borderRadius: 6, padding: "7px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-            transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6,
-          }}
-            onMouseEnter={e => { e.currentTarget.style.background = CP; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-          >← Back to Portfolio</button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, letterSpacing: 2, color: CL, fontWeight: 700, marginBottom: 2 }}>PORTFOLIO GAME</div>
-            <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 900, fontSize: "clamp(22px, 3vw, 32px)", margin: 0, color: CD }}>
-              Select Your Level
-            </h1>
+      {/* Blue Header Strip */}
+      <div style={{ background: `linear-gradient(90deg, ${C}, ${CD})`, padding: "18px 32px", boxShadow: "0 4px 20px rgba(13,74,138,0.2)" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <button onClick={onBack} style={{
+              background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "white",
+              borderRadius: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              transition: "all 0.2s", display: "flex", alignItems: "center", gap: 6,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; }}
+            >← Back to Portfolio</button>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: 2, color: "rgba(255,255,255,0.7)", fontWeight: 700, marginBottom: 2 }}>PORTFOLIO GAME</div>
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 900, fontSize: "clamp(22px, 3vw, 30px)", margin: 0, color: "white" }}>
+                Select Your Level
+              </h1>
+            </div>
           </div>
-          <div style={{ padding: "10px 20px", background: CP, border: `1px solid ${C}22`, borderRadius: 8, textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: CL, letterSpacing: 1, fontWeight: 600 }}>TOTAL XP</div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: C }}>0</div>
-          </div>
-        </div>
-      </div>
 
-      {/* Intro strip */}
-      <div style={{ background: `linear-gradient(90deg, ${C}, ${CD})`, padding: "20px 32px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, margin: 0 }}>
-            Explore my career journey through 3 companies. Each level represents a different role I've held.
-          </p>
-          <div style={{ display: "flex", gap: 16 }}>
+          <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: "#fef08a" }}>{totalXP}</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", letterSpacing: 1, fontWeight: 600 }}>TOTAL XP</div>
+            </div>
+            <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.2)" }} />
             <div style={{ textAlign: "center" }}>
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "white" }}>{achievements.size}/3</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", letterSpacing: 1 }}>COMPLETED</div>
@@ -112,8 +109,17 @@ export default function GameLevels({ onBack, onStartGame, onLevelComplete, achie
         </div>
       </div>
 
+      {/* Intro strip */}
+      <div style={{ background: "white", padding: "14px 32px", borderBottom: `1px solid ${C}18` }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <p style={{ color: "#555", fontSize: 14, margin: 0 }}>
+            Explore my career journey through 3 companies. Each level represents a different role I've held.
+          </p>
+        </div>
+      </div>
+
       {/* Level grid */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "44px 32px 80px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 32px 80px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))", gap: 20 }}>
           {levelsWithLockStatus.map(level => (
             <LevelCard
@@ -155,6 +161,46 @@ export default function GameLevels({ onBack, onStartGame, onLevelComplete, achie
   );
 }
 
+function CircularLogoThumbnail({ logo, alt, name, size = 52, locked = false }: { logo: string; alt: string; name?: string; size?: number; locked?: boolean }) {
+  const [imgError, setImgError] = useState(false);
+  const initial = name ? name[0].toUpperCase() : "★";
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: "linear-gradient(135deg, #1e3a8a, #0d4a8a)",
+      border: locked ? "2px solid #cbd5e1" : "2px solid #fbbf24",
+      boxShadow: locked ? "none" : "0 3px 10px rgba(251, 191, 36, 0.35)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      overflow: "hidden", position: "relative", flexShrink: 0,
+      color: "#fbbf24", fontFamily: "'Playfair Display', serif", fontWeight: 800,
+      fontSize: size * 0.42,
+    }}>
+      {!imgError ? (
+        <img
+          src={logo}
+          alt={alt}
+          onError={() => setImgError(true)}
+          style={{
+            width: "100%", height: "100%", objectFit: "contain", padding: size * 0.08,
+            filter: locked ? "grayscale(80%) opacity(0.6)" : "none",
+          }}
+        />
+      ) : (
+        <span>{initial}</span>
+      )}
+      {locked && (
+        <div style={{
+          position: "absolute", inset: 0, background: "rgba(241, 245, 249, 0.75)",
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.38,
+        }}>
+          🔒
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LevelCard({ level, selected, onSelect, onStart, achievements }: {
   level: typeof LEVELS[0];
   selected: boolean;
@@ -183,7 +229,7 @@ function LevelCard({ level, selected, onSelect, onStart, achievements }: {
           ? "0 4px 20px rgba(30,111,191,0.1)"
           : "0 1px 8px rgba(30,111,191,0.06)",
         transition: "all 0.25s",
-        opacity: level.locked ? 0.55 : 1,
+        opacity: level.locked ? 0.6 : 1,
         position: "relative",
       }}
     >
@@ -200,13 +246,7 @@ function LevelCard({ level, selected, onSelect, onStart, achievements }: {
       <div style={{ padding: "24px 26px 22px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: 10,
-              background: level.locked ? "#f1f5f9" : CP,
-              border: `1px solid ${level.locked ? "#e2e8f0" : C + "25"}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22, color: level.locked ? "#94a3b8" : C,
-            }}>{level.locked ? "🔒" : level.icon}</div>
+            <CircularLogoThumbnail logo={level.logo} alt={level.name} name={level.name} size={52} locked={level.locked} />
             <div>
               <div style={{ fontSize: 11, color: CL, letterSpacing: 1, marginBottom: 2 }}>LEVEL {level.id}</div>
               <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: level.locked ? "#94a3b8" : "#0a0a0a" }}>{level.name}</div>
@@ -284,13 +324,9 @@ function LevelStarted({ level, onBack, onBegin }: { level: typeof LEVELS[0]; onB
       zIndex: 1000,
     }}>
       <div style={{ textAlign: "center", maxWidth: 540, width: "100%" }}>
-        <div style={{
-          width: 96, height: 96, borderRadius: "50%",
-          background: `radial-gradient(circle at 35% 30%, ${CL}, ${CD})`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 42, margin: "0 auto 28px",
-          boxShadow: `0 8px 40px rgba(30,111,191,0.3)`,
-        }}>{level.icon}</div>
+        <div style={{ margin: "0 auto 24px", display: "flex", justifyContent: "center" }}>
+          <CircularLogoThumbnail logo={level.logo} alt={level.name} name={level.name} size={96} />
+        </div>
         <div style={{ fontSize: 11, letterSpacing: 2.5, color: C, fontWeight: 700, marginBottom: 8 }}>LEVEL {level.id} SELECTED</div>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 40, fontWeight: 900, margin: "0 0 12px", color: "#0a0a0a" }}>{level.name}</h1>
         <p style={{ color: "#666", fontSize: 16, lineHeight: 1.75, margin: "0 0 36px" }}>{level.description}</p>
