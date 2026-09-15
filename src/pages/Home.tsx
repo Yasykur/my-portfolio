@@ -339,50 +339,107 @@ export default function Home({ onPlayClick, achievements }: Props) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
             {[
-              { id: 1, company: "TechCorp Inc.", role: "Senior Frontend Developer", icon: "◈" },
-              { id: 2, company: "DesignStudio", role: "UI/UX Designer", icon: "⬡" },
-              { id: 3, company: "StartupXYZ", role: "Full Stack Engineer", icon: "⟳" },
-            ].map(achievement => (
-              <div key={achievement.id} style={{
-                background: "white",
-                border: `2px solid ${achievements.has(achievement.id) ? "#16a34a" : "#e2e8f0"}`,
-                borderRadius: 12,
-                padding: "28px 24px",
-                boxShadow: achievements.has(achievement.id) ? "0 8px 32px rgba(22,163,74,0.15)" : "0 2px 12px rgba(30,111,191,0.06)",
-                opacity: achievements.has(achievement.id) ? 1 : 0.6,
-                transition: "all 0.3s",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-                  <div style={{
-                    width: 56, height: 56,
-                    borderRadius: 12,
-                    background: achievements.has(achievement.id) ? "#16a34a" : CP,
-                    border: `1px solid ${achievements.has(achievement.id) ? "#16a34a" : C + "25"}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 24,
-                    color: achievements.has(achievement.id) ? "white" : C,
-                  }}>
-                    {achievements.has(achievement.id) ? "✓" : achievement.icon}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: CL, letterSpacing: 1, fontWeight: 600, marginBottom: 2 }}>LEVEL {achievement.id}</div>
-                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#0a0a0a" }}>{achievement.company}</div>
-                    <div style={{ fontSize: 13, color: C, fontWeight: 500 }}>{achievement.role}</div>
-                  </div>
-                </div>
-                <div style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: achievements.has(achievement.id) ? "#16a34a" : "#94a3b8",
-                  letterSpacing: 0.5,
-                  textTransform: "uppercase",
+              {
+                id: 1,
+                company: "Cosmopolitan College Brunei",
+                role: "College Journey",
+                description: "Led the Application Development Team in building an inventory management system from scratch, while organizing IoT agriculture projects and campus initiatives over 4+ years.",
+                logo: "/images/logos/cosmopolitan.png",
+              },
+              {
+                id: 2,
+                company: "Muara International Fish Landing",
+                role: "HR & Operations",
+                description: "Built an inventory system with dashboards from scratch, supported payroll accuracy, and started automating admin work with AI tools during a 6-month HR internship.",
+                logo: "/images/logos/muara.png",
+              },
+              {
+                id: 3,
+                company: "Coffee Bean & Tea Leaf Brunei",
+                role: "AI/IT Supervisor",
+                description: "Leading CBTL's AI adoption as solo AI/IT Supervisor — from the Claude Team proposal to internal SOPs and HR platform rollout support.",
+                logo: "/images/logos/cbtl.png",
+              },
+            ].map(achievement => {
+              const unlocked = achievements.has(achievement.id);
+              return (
+                <div key={achievement.id} style={{
+                  background: "white",
+                  border: `2px solid ${unlocked ? "#16a34a" : "#e2e8f0"}`,
+                  borderRadius: 12,
+                  padding: "28px 24px",
+                  boxShadow: unlocked ? "0 8px 32px rgba(22,163,74,0.15)" : "0 2px 12px rgba(30,111,191,0.06)",
+                  opacity: unlocked ? 1 : 0.6,
+                  transition: "all 0.3s",
+                  display: "flex",
+                  flexDirection: "column",
+                  justify: "space-between",
                 }}>
-                  {achievements.has(achievement.id) ? "✓ UNLOCKED" : "🔒 LOCKED"}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+                      <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
+                        <div style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: "50%",
+                          overflow: "hidden",
+                          background: unlocked ? "linear-gradient(135deg, #16a34a 0%, #15803d 100%)" : "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
+                          border: `2px solid ${unlocked ? "#16a34a" : C + "25"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        }}>
+                          <img
+                            src={achievement.logo}
+                            alt={achievement.company}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: "50%" }}
+                          />
+                        </div>
+                        {unlocked && (
+                          <div style={{
+                            position: "absolute",
+                            bottom: -2,
+                            right: -2,
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            background: "#16a34a",
+                            color: "white",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                          }}>
+                            ✓
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: CL, letterSpacing: 1, fontWeight: 600, marginBottom: 2 }}>LEVEL {achievement.id}</div>
+                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: "#0a0a0a" }}>{achievement.company}</div>
+                        <div style={{ fontSize: 13, color: C, fontWeight: 500 }}>{achievement.role}</div>
+                      </div>
+                    </div>
+                    <p style={{ color: "#666", fontSize: 13, lineHeight: 1.6, margin: "0 0 16px" }}>
+                      {achievement.description}
+                    </p>
+                  </div>
+                  <div style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: unlocked ? "#16a34a" : "#94a3b8",
+                    letterSpacing: 0.5,
+                    textTransform: "uppercase",
+                  }}>
+                    {unlocked ? "✓ UNLOCKED" : "🔒 LOCKED"}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
