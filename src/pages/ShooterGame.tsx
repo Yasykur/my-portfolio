@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import MedalReveal from "../components/MedalReveal";
 
 const CW = 800;
 const CH = 480;
@@ -50,8 +49,8 @@ interface BossLetter {
 interface DroppedMedal {
   x: number;
   y: number;
+  vy: number;
   collected: boolean;
-  baseY?: number;
 }
 
 interface GS {
@@ -344,28 +343,6 @@ function drawBoss(ctx: CanvasRenderingContext2D, bossX: number, bossY: number, b
   ctx.restore();
 }
 
-function drawInWorldMedal(ctx: CanvasRenderingContext2D, x: number, y: number, frameCount: number) {
-  ctx.save();
-  ctx.translate(x, y);
-  const spin = Math.sin(frameCount * 0.08);
-  const squash = Math.abs(spin) * 0.7 + 0.3; // simulates a spinning coin narrowing/widening
-
-  ctx.fillStyle = "#d4a017";
-  ctx.strokeStyle = "#92400e";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 16 * squash, 16, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "#fbbf24";
-  ctx.beginPath();
-  ctx.arc(0, 0, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
 // Draw Start Screen (Difficulty Selection)
 function drawStartScreen(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = "rgba(250, 245, 255, 0.92)";
@@ -627,6 +604,15 @@ export default function ShooterGame({
   const [showMedalReveal, setShowMedalReveal] = useState(false);
 
   useEffect(() => {
+    const img = new Image();
+    img.src = "/images/logos/cbtl.png";
+    img.onerror = () => {
+      img.src = "/logos/cbtl.png";
+    };
+    logoRef.current = img;
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
 
@@ -638,7 +624,6 @@ export default function ShooterGame({
       }
       if (e.code === "KeyR" && g.dead) {
         gsRef.current = freshState();
-        setShowMedalReveal(false);
       }
     };
     const onKU = (e: KeyboardEvent) => {
@@ -825,7 +810,7 @@ export default function ShooterGame({
 
         // Boss throws letters ("LIFE PROBLEM" without space)
         const letterInterval = g.difficulty === "easy" ? 55 : 36;
-        if (g.bossHp > 0 && g.bossTimer % letterInterval === 0) {
+        if (g.bossTimer % letterInterval === 0) {
           letterIdCounter++;
           const letters = ["L", "I", "F", "E", "P", "R", "O", "B", "L", "E", "M"];
           const char = letters[Math.floor(Math.random() * letters.length)];
@@ -903,6 +888,7 @@ export default function ShooterGame({
                 g.droppedMedal = {
                   x: g.bossX,
                   y: g.bossY,
+                  vy: 0,
                   collected: false,
                 };
               }
@@ -930,11 +916,11 @@ export default function ShooterGame({
 
       // ── Dropped Medal Logic ──
       if (g.droppedMedal && !g.droppedMedal.collected) {
-        // ease toward a resting height slightly below spawn point, then bob in place
-        const restY = g.droppedMedal.baseY ?? (g.droppedMedal.baseY = g.droppedMedal.y + 20);
-        g.droppedMedal.y += (restY - g.droppedMedal.y) * 0.05;
-        g.droppedMedal.y += Math.sin(g.frameCount * 0.05) * 0.4;
+        g.droppedMedal.vy = Math.min(g.droppedMedal.vy + 0.05, 1.5);
+        g.droppedMedal.y += g.droppedMedal.vy;
+        g.droppedMedal.x -= 0.5;
 
+        // Player collision with dropped medal
         const dx = g.px - g.droppedMedal.x;
         const dy = g.py - g.droppedMedal.y;
         if (Math.sqrt(dx * dx + dy * dy) < 30 && !g.won) {
@@ -1168,7 +1154,7 @@ export default function ShooterGame({
           style={{
             marginTop: 10,
             display: "flex",
-            justifyContent: "space-between",
+            justify: "space-between",
             color: "#9333ea",
             fontSize: 12,
           }}
