@@ -338,14 +338,102 @@ export default function Home({ onPlayClick, achievements }: Props) {
             <p style={{ color: "#888", fontSize: 15, margin: 0 }}>Complete each company level to unlock achievements. {achievements.size}/3 completed.</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+            {/* Card 1: Category - Experiences */}
+            {(() => {
+              const unlocked = achievements.has(1);
+              return (
+                <div
+                  key={1}
+                  onClick={() => {
+                    if (unlocked) {
+                      document.getElementById("experience")?.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                  style={{
+                    background: "white",
+                    border: `2px solid ${unlocked ? "#16a34a" : "#e2e8f0"}`,
+                    borderRadius: 12,
+                    padding: "28px 24px",
+                    boxShadow: unlocked ? "0 8px 32px rgba(22,163,74,0.15)" : "0 2px 12px rgba(30,111,191,0.06)",
+                    opacity: unlocked ? 1 : 0.6,
+                    transition: "all 0.3s",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    cursor: unlocked ? "pointer" : "default",
+                  }}
+                >
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+                      <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
+                        <div style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: "50%",
+                          overflow: "hidden",
+                          background: unlocked ? "linear-gradient(135deg, #16a34a 0%, #15803d 100%)" : "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
+                          border: `2px solid ${unlocked ? "#16a34a" : C + "25"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                          color: unlocked ? "white" : "#64748b",
+                        }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                          </svg>
+                        </div>
+                        {unlocked && (
+                          <div style={{
+                            position: "absolute",
+                            bottom: -2,
+                            right: -2,
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            background: "#16a34a",
+                            color: "white",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                          }}>
+                            ✓
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, color: CL, letterSpacing: 1, fontWeight: 600, marginBottom: 2 }}>LEVEL 1</div>
+                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "#0a0a0a" }}>Experiences</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    {unlocked && (
+                      <div style={{ fontSize: 12, color: C, fontWeight: 600, marginBottom: 8 }}>
+                        Click to view timeline ↓
+                      </div>
+                    )}
+                    <div style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: unlocked ? "#16a34a" : "#94a3b8",
+                      letterSpacing: 0.5,
+                      textTransform: "uppercase",
+                    }}>
+                      {unlocked ? "✓ UNLOCKED" : "🔒 LOCKED"}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Cards 2 & 3 remain unchanged */}
             {[
-              {
-                id: 1,
-                company: "Cosmopolitan College Brunei",
-                role: "College Journey",
-                description: "Led the Application Development Team in building an inventory management system from scratch, while organizing IoT agriculture projects and campus initiatives over 4+ years.",
-                logo: "/images/logos/cosmopolitan.png",
-              },
               {
                 id: 2,
                 company: "Muara International Fish Landing",
@@ -373,7 +461,7 @@ export default function Home({ onPlayClick, achievements }: Props) {
                   transition: "all 0.3s",
                   display: "flex",
                   flexDirection: "column",
-                  justify: "space-between",
+                  justifyContent: "space-between",
                 }}>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
@@ -440,6 +528,109 @@ export default function Home({ onPlayClick, achievements }: Props) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── EXPERIENCE ── */}
+      <section id="experience" style={{ padding: "88px 32px", background: "white", borderTop: `1px solid ${C}12` }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 64 }}>
+            <div style={{ display: "inline-block", padding: "4px 14px", background: `${C}10`, borderRadius: 20, color: C, fontSize: 11, fontWeight: 700, letterSpacing: 2, marginBottom: 14 }}>CAREER TIMELINE</div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 36, margin: "0 0 10px", color: "#0a0a0a" }}>Work &amp; Academic Experience</h2>
+            <p style={{ color: "#888", fontSize: 15, margin: 0 }}>A detailed breakdown of my roles, engagements, and technical contributions.</p>
+          </div>
+
+          <div style={{ position: "relative", paddingLeft: 28, borderLeft: `2px solid ${C}22` }}>
+            {[
+              {
+                role: "AI/IT Supervisor",
+                company: "The Coffee Bean & Tea Leaf® Brunei Darussalam",
+                meta: "Contract · Aug 2026–Present",
+                bullets: [],
+              },
+              {
+                role: "AI/IT Assistant",
+                company: "The Coffee Bean & Tea Leaf® Brunei Darussalam",
+                meta: "Internship · Jan 2026–Jul 2026",
+                bullets: [],
+              },
+              {
+                role: "Human Resources Assistant",
+                company: "Muara International Fish Landing",
+                meta: "Internship · Jun 2025–Nov 2025",
+                bullets: [
+                  "Built an inventory management system with filters, dashboards, and reports",
+                  "Verified attendance records and supported payroll accuracy",
+                  "Provided IT support (Microsoft 365, Wi-Fi, printers)",
+                  "Contributed to HR documentation including a Competency Framework and draft Employee Handbook",
+                  "Used AI tools to automate repetitive Excel/admin work",
+                ],
+              },
+              {
+                role: "Application Development Team Lead",
+                company: "Cosmopolitan College of Commerce & Technology",
+                meta: "Jan 2025–Apr 2025",
+                bullets: [
+                  "Led a team designing and building an Inventory Management System",
+                ],
+              },
+              {
+                role: "Other Engagements",
+                company: "Cosmopolitan College of Commerce & Technology",
+                meta: "Mar 2021–Jul 2025",
+                bullets: [
+                  "Team leader for IoT Agriculture projects (2023 and 2025)",
+                  "Organized the COSMO Beach Cleaning Campaign (2023)",
+                  "COSMO Bowling Club member (2021)",
+                ],
+              },
+            ].map((exp, idx) => (
+              <div key={idx} style={{ position: "relative", marginBottom: 40 }}>
+                {/* Timeline node dot */}
+                <div style={{
+                  position: "absolute",
+                  left: -37,
+                  top: 4,
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: idx === 0 ? C : "white",
+                  border: `3px solid ${C}`,
+                  boxShadow: "0 0 0 4px white",
+                }} />
+
+                <div style={{
+                  background: "#f8fafc",
+                  border: `1px solid ${C}18`,
+                  borderRadius: 10,
+                  padding: "24px 28px",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
+                }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 20, margin: 0, color: "#0a0a0a" }}>
+                      {exp.role}
+                    </h3>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C, background: CP, padding: "3px 12px", borderRadius: 12 }}>
+                      {exp.meta}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: CD, marginBottom: exp.bullets.length > 0 ? 14 : 0 }}>
+                    {exp.company}
+                  </div>
+
+                  {exp.bullets.length > 0 && (
+                    <ul style={{ margin: 0, paddingLeft: 20, color: "#475569", fontSize: 14, lineHeight: 1.65 }}>
+                      {exp.bullets.map((bullet, bIdx) => (
+                        <li key={bIdx} style={{ marginBottom: bIdx === exp.bullets.length - 1 ? 0 : 6 }}>
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
