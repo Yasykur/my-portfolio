@@ -344,28 +344,6 @@ function drawBoss(ctx: CanvasRenderingContext2D, bossX: number, bossY: number, b
   ctx.restore();
 }
 
-function drawInWorldMedal(ctx: CanvasRenderingContext2D, x: number, y: number, frameCount: number) {
-  ctx.save();
-  ctx.translate(x, y);
-  const spin = Math.sin(frameCount * 0.08);
-  const squash = Math.abs(spin) * 0.7 + 0.3; // simulates a spinning coin narrowing/widening
-
-  ctx.fillStyle = "#d4a017";
-  ctx.strokeStyle = "#92400e";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 16 * squash, 16, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = "#fbbf24";
-  ctx.beginPath();
-  ctx.arc(0, 0, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
 // Draw Start Screen (Difficulty Selection)
 function drawStartScreen(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = "rgba(250, 245, 255, 0.92)";
