@@ -1353,7 +1353,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
     }}>
       {showMedalReveal && (
         <MedalReveal
-          logoSrc="/logos/cosmopolitan.png"
+          logoSrc="/images/logos/cosmopolitan.png"
           label="Cosmopolitan College Brunei"
           onComplete={() => {
             setShowMedalReveal(false);

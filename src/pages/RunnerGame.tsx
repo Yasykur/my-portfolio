@@ -769,7 +769,7 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
     }}>
       {showMedalReveal && (
         <MedalReveal
-          logoSrc="/logos/muara.png"
+          logoSrc="/images/logos/muara.png"
           label="Muara International Fish Landing"
           onComplete={() => {
             setShowMedalReveal(false);
