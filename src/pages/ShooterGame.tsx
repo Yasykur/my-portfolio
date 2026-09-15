@@ -403,7 +403,7 @@ function drawInWorldMedal(
   const scaleX = Math.abs(Math.sin(frameCount * 0.08));
   ctx.scale(scaleX, 1);
 
-  const R = 16;
+  const R = 15;
 
   // Outer gold base with shadow
   ctx.save();
@@ -436,7 +436,7 @@ function drawInWorldMedal(
     ctx.fill();
 
     ctx.fillStyle = "#92400e";
-    ctx.font = "bold 11px sans-serif";
+      ctx.font = "bold 10px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText("★", 0, 0);
@@ -460,7 +460,7 @@ function drawInWorldMedal(
   ctx.beginPath();
   ctx.arc(0, 0, R, 0, Math.PI * 2);
   ctx.strokeStyle = "#d4a017";
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   ctx.beginPath();
@@ -511,23 +511,11 @@ function drawHUD(
       ctx.fillStyle = "#6d28d9";
       ctx.fillText("Defeated the Life Problem!", CW / 2, CH / 2 + 10);
 
-      // Placeholder badge
-      const badgeR = 40;
-      const badgeX = CW / 2;
-      const badgeY = CH / 2 + 50;
-      ctx.beginPath();
-      ctx.arc(badgeX, badgeY, badgeR, 0, Math.PI * 2);
-      ctx.fillStyle = "#9333ea";
-      ctx.fill();
-      ctx.strokeStyle = "#5b21b6";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
       if (onViewAchievements && a > 0.8) {
         const btnW = 200;
         const btnH = 44;
         const btnX = (CW - btnW) / 2;
-        const btnY = CH / 2 + 110;
+        const btnY = CH / 2 + 50;
         const nextBtnY = btnY + btnH + 12;
 
         ctx.fillStyle = "#7c3aed";
@@ -605,6 +593,15 @@ export default function ShooterGame({
   const [showMedalReveal, setShowMedalReveal] = useState(false);
 
   useEffect(() => {
+    const img = new Image();
+    img.src = "/images/logos/cbtl.png";
+    img.onerror = () => {
+      img.src = "/logos/cbtl.png";
+    };
+    logoRef.current = img;
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
 
@@ -659,7 +656,7 @@ export default function ShooterGame({
         const btnW = 200;
         const btnH = 44;
         const btnX = (CW - btnW) / 2;
-        const btnY = CH / 2 + 110;
+        const btnY = CH / 2 + 50;
         const nextBtnY = btnY + btnH + 12;
 
         if (canvasX >= btnX && canvasX <= btnX + btnW &&

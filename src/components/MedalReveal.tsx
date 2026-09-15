@@ -28,12 +28,16 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
     container.appendChild(renderer.domElement);
 
     // ── Lighting ──
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xfff5ea, 1.8);
+    const directionalLight = new THREE.DirectionalLight(0xfff5ea, 2.0);
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
+
+    const frontLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    frontLight.position.set(0, 0, 5);
+    scene.add(frontLight);
 
     const backLight = new THREE.DirectionalLight(0xd4a017, 0.8);
     backLight.position.set(-5, -5, -2);
@@ -93,8 +97,7 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
       }
     }
 
-    drawCoinFace();
-
+    let textureReady = false;
     const canvasTexture = new THREE.CanvasTexture(offCanvas);
     canvasTexture.colorSpace = THREE.SRGBColorSpace;
 
@@ -104,12 +107,20 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
       img.onload = () => {
         drawCoinFace(img);
         canvasTexture.needsUpdate = true;
+        textureReady = true;
+        if (coin) coin.visible = true;
       };
       img.onerror = () => {
         drawCoinFace();
         canvasTexture.needsUpdate = true;
+        textureReady = true;
+        if (coin) coin.visible = true;
       };
       img.src = logoSrc;
+    } else {
+      drawCoinFace();
+      canvasTexture.needsUpdate = true;
+      textureReady = true;
     }
 
     // ── Coin Geometry & Materials ──
@@ -117,19 +128,20 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
 
     const sideMaterial = new THREE.MeshStandardMaterial({
       color: 0xd4a017,
-      metalness: 0.85,
-      roughness: 0.25,
+      metalness: 0.8,
+      roughness: 0.3,
     });
 
     const faceMaterial = new THREE.MeshStandardMaterial({
       map: canvasTexture,
-      metalness: 0.85,
-      roughness: 0.25,
+      metalness: 0.05,
+      roughness: 0.35,
     });
 
     // CylinderGeometry materials: [side, top, bottom]
     const coin = new THREE.Mesh(geometry, [sideMaterial, faceMaterial, faceMaterial]);
     coin.rotation.x = Math.PI / 2;
+    coin.visible = textureReady;
     scene.add(coin);
 
     // ── Animation Loop ──
@@ -200,7 +212,7 @@ export default function MedalReveal({ logoSrc, label, onComplete }: MedalRevealP
         style={{
           textAlign: "center",
           color: "white",
-          marginTop: -20,
+          marginTop: 16,
           fontFamily: "'Outfit', sans-serif",
         }}
       >
