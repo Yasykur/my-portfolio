@@ -168,7 +168,7 @@ function CircularLogoThumbnail({ logo, alt, name, size = 52, locked = false }: {
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
-      background: "linear-gradient(135deg, #1e3a8a, #0d4a8a)",
+      background: imgError ? "linear-gradient(135deg, #1e3a8a, #0d4a8a)" : "transparent",
       border: locked ? "2px solid #cbd5e1" : "2px solid #fbbf24",
       boxShadow: locked ? "none" : "0 3px 10px rgba(251, 191, 36, 0.35)",
       display: "flex", alignItems: "center", justifyContent: "center",
