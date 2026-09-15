@@ -483,35 +483,84 @@ function bloodSurfacesAt(px: number, level: LevelData): number[] {
   return ys;
 }
 
-function drawInWorldMedal(ctx: CanvasRenderingContext2D, x: number, y: number, frameCount: number) {
+function drawInWorldMedal(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  frameCount: number,
+  logoImg: HTMLImageElement | null
+) {
   ctx.save();
   ctx.translate(x, y);
 
   const scaleX = Math.abs(Math.sin(frameCount * 0.08));
-
   ctx.scale(scaleX, 1);
 
-  // Gold outer circle
+  const R = 15;
+
+  // Outer gold base
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+
   ctx.beginPath();
-  ctx.arc(0, 0, 14, 0, Math.PI * 2);
-  ctx.fillStyle = "#d4a017";
+  ctx.arc(0, 0, R, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbbf24";
   ctx.fill();
-  ctx.strokeStyle = "#92400e";
+  ctx.restore();
+
+  // Draw logo image clipped inside circle if ready
+  if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, R - 2, 0, Math.PI * 2);
+    ctx.clip();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.drawImage(logoImg, -(R - 2), -(R - 2), (R - 2) * 2, (R - 2) * 2);
+    ctx.restore();
+  } else {
+    // Inner accent fallback
+    ctx.beginPath();
+    ctx.arc(0, 0, R - 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#fbbf24";
+    ctx.fill();
+
+    ctx.fillStyle = "#92400e";
+    ctx.font = "bold 10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("★", 0, 0);
+  }
+
+  // Radial gradient shine overlay
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, R - 1, 0, Math.PI * 2);
+  ctx.clip();
+
+  const shineGrad = ctx.createRadialGradient(-R * 0.35, -R * 0.35, 1, -R * 0.1, -R * 0.1, R * 1.3);
+  shineGrad.addColorStop(0, "rgba(255, 255, 255, 0.65)");
+  shineGrad.addColorStop(0.4, "rgba(255, 255, 255, 0.2)");
+  shineGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.fillStyle = shineGrad;
+  ctx.fill();
+  ctx.restore();
+
+  // Thin gold rim stroke
+  ctx.beginPath();
+  ctx.arc(0, 0, R, 0, Math.PI * 2);
+  ctx.strokeStyle = "#d4a017";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Inner accent circle
   ctx.beginPath();
-  ctx.arc(0, 0, 9, 0, Math.PI * 2);
-  ctx.fillStyle = "#fbbf24";
-  ctx.fill();
-
-  // Center star
-  ctx.fillStyle = "#92400e";
-  ctx.font = "bold 10px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("★", 0, 0);
+  ctx.arc(0, 0, R - 1, 0, Math.PI * 2);
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -980,9 +1029,19 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
   const level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
   const gsRef = useRef<GS>(freshState(level));
   const rafRef = useRef(0);
+  const logoRef = useRef<HTMLImageElement | null>(null);
   const [score, setScore] = useState(0);
   const [won, setWon] = useState(false);
   const [showMedalReveal, setShowMedalReveal] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/images/logos/cosmopolitan.png";
+    img.onerror = () => {
+      img.src = "/logos/cosmopolitan.png";
+    };
+    logoRef.current = img;
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -1231,7 +1290,7 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
       const medalY = level.groundY - 30;
 
       if (!g.medalCollected) {
-        drawInWorldMedal(ctx, medalX, medalY, g.frameCount);
+        drawInWorldMedal(ctx, medalX, medalY, g.frameCount, logoRef.current);
       }
 
       // Prompt when player reaches or passes flag
