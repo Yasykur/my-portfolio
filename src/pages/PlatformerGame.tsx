@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import TouchControls from "../components/TouchControls";
+import { useIsTouch } from "../site/useMediaQuery";
 import MedalReveal from "../components/MedalReveal";
 
 const CW = 800;
@@ -1026,6 +1028,7 @@ function drawHUD(
 
 export default function PlatformerGame({ onBack, levelId, onLevelComplete, onViewAchievements }: { onBack: () => void; levelId: number; onLevelComplete: (levelId: number) => void; onViewAchievements?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isTouch = useIsTouch();
   const level = LEVELS.find(l => l.id === levelId) || LEVELS[0];
   const gsRef = useRef<GS>(freshState(level));
   const rafRef = useRef(0);
@@ -1444,9 +1447,15 @@ export default function PlatformerGame({ onBack, levelId, onLevelComplete, onVie
           style={{
             display: "block", border: "2.5px solid #000", borderRadius: 6,
             outline: "none", boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+            width: "100%",
+            maxWidth: CW,
+            height: "auto",
+            touchAction: "none",
           }}
           tabIndex={0}
         />
+
+        {isTouch && <TouchControls variant="platformer" />}
 
         <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", color: "#aaa", fontSize: 12 }}>
           <span>Press R to restart after dying</span>

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import TouchControls from "../components/TouchControls";
+import { useIsTouch } from "../site/useMediaQuery";
 import MedalReveal from "../components/MedalReveal";
 
 const CW = 800;
@@ -529,6 +531,7 @@ function drawHUD(
 
 export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements }: { onBack: () => void; onLevelComplete: (levelId: number) => void; onViewAchievements?: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isTouch = useIsTouch();
   const gsRef = useRef<GS>(freshState());
   const rafRef = useRef(0);
   const logoRef = useRef<HTMLImageElement | null>(null);
@@ -849,9 +852,15 @@ export default function RunnerGame({ onBack, onLevelComplete, onViewAchievements
           style={{
             display: "block", border: "2.5px solid #000", borderRadius: 6,
             outline: "none", boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
+            width: "100%",
+            maxWidth: CW,
+            height: "auto",
+            touchAction: "none",
           }}
           tabIndex={0}
         />
+
+        {isTouch && <TouchControls variant="runner" />}
 
         <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", color: "#aaa", fontSize: 12 }}>
           <span>Press R to restart after dying</span>

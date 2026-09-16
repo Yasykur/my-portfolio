@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import TouchControls from "../components/TouchControls";
+import { useIsTouch } from "../site/useMediaQuery";
 import MedalReveal from "../components/MedalReveal";
 
 const CW = 800;
@@ -586,6 +588,7 @@ export default function ShooterGame({
   onViewAchievements?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isTouch = useIsTouch();
   const gsRef = useRef<GS>(freshState());
   const rafRef = useRef(0);
   const logoRef = useRef<HTMLImageElement | null>(null);
@@ -1135,9 +1138,15 @@ export default function ShooterGame({
             borderRadius: 6,
             outline: "none",
             boxShadow: "0 8px 32px rgba(109, 40, 217, 0.18)",
+            width: "100%",
+            maxWidth: CW,
+            height: "auto",
+            touchAction: "none",
           }}
           tabIndex={0}
         />
+
+        {isTouch && <TouchControls variant="shooter" />}
 
         <div
           style={{
