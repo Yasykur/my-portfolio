@@ -22,15 +22,42 @@ export const CONTACT_ANCHOR = "contact";
 
 /** Smooth-scrolls to the contact block, hopping home first if needed. */
 export function scrollToContact(onNavigate: (p: PageKey) => void) {
-  const run = () => {
-    const el = document.getElementById(CONTACT_ANCHOR);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  const triggerPing = (el: HTMLElement) => {
     el.classList.remove("fs-contact-ping");
-    // restart the highlight animation
     void el.offsetWidth;
     el.classList.add("fs-contact-ping");
     window.setTimeout(() => el.classList.remove("fs-contact-ping"), 1600);
+  };
+
+  const run = () => {
+    const el = document.getElementById(CONTACT_ANCHOR);
+    if (!el) return;
+
+    const startY = window.scrollY || window.pageYOffset;
+    const targetY = startY + el.getBoundingClientRect().top;
+    const distance = targetY - startY;
+    const duration = 1000;
+    let startTime: number | null = null;
+
+    const easeInOut = (t: number) =>
+      t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+    const step = (currentTime: number) => {
+      if (startTime === null) startTime = currentTime;
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeInOut(progress);
+
+      window.scrollTo(0, startY + distance * easedProgress);
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        triggerPing(el);
+      }
+    };
+
+    requestAnimationFrame(step);
   };
 
   if (document.getElementById(CONTACT_ANCHOR)) run();
