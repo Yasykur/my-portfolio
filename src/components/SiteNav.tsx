@@ -325,29 +325,22 @@ export default function SiteNav({
             title="Contact me"
             aria-label="Contact me"
             style={{
-              width: isMobile ? 38 : 38,
-              height: 38,
-              borderRadius: 9,
-              border: `1.5px solid ${C}33`,
-              background: CP,
+              border: "none",
+              background: "transparent",
               color: C,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              padding: 0,
+              padding: 6,
               flexShrink: 0,
-              transition: "all 0.22s",
+              transition: "opacity 0.2s, color 0.2s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = C;
-              e.currentTarget.style.color = readableOn(C);
-              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.opacity = "0.75";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = CP;
-              e.currentTarget.style.color = C;
-              e.currentTarget.style.transform = "none";
+              e.currentTarget.style.opacity = "1";
             }}
           >
             <PhoneIcon />
