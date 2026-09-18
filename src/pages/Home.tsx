@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SiteNav, { CONTACT_ANCHOR } from "../components/SiteNav";
 import type { PageKey } from "../components/SiteNav";
 import SiteFooter, { LINKEDIN_URL, LinkedInMark } from "../components/SiteFooter";
 import { readableOn, usePalette } from "../site/SiteContext";
-import { useIsMobile, useIsNarrow } from "../site/useMediaQuery";
+import { useIsMobile, useIsNarrow, useIsTouch } from "../site/useMediaQuery";
 
 /* ─────────────────────────────────────────────────────────────
    DROP-IN ASSETS — see the notes next to each constant.
@@ -702,21 +702,32 @@ function ProjectModal({ project, onClose }: { project: Project; onClose: () => v
 }
 
 /* ─── OFF THE CLOCK ─────────────────────────────────────────── */
-const PERSONAL_BITS: { icon: string; title: string; body: string }[] = [
+interface PersonalBit {
+  icon: string;
+  title: string;
+  body: string;
+  date?: string;
+  image?: string;
+}
+
+const PERSONAL_BITS: PersonalBit[] = [
   {
     icon: "🇮🇩",
     title: "Flag ceremony commander",
     body: "Two years volunteering with PASKIBRA at the Indonesian Embassy in Brunei, commanding the Independence Day ceremony.",
+    date: "2017–2019",
   },
   {
     icon: "🏖️",
     title: "Beach cleanups",
     body: "Organised the COSMO Beach Cleaning Campaign in 2023. Less glamorous than it sounds, still worth doing.",
+    date: "2023",
   },
   {
     icon: "🎳",
     title: "Bowling club",
     body: "Joined in my first year at college. My average is nothing to write home about.",
+    date: "2021",
   },
   {
     icon: "🗣️",
@@ -725,26 +736,68 @@ const PERSONAL_BITS: { icon: string; title: string; body: string }[] = [
   },
 ];
 
-function PersonalCard({ item }: { item: (typeof PERSONAL_BITS)[0] }) {
-  const { C, CP } = usePalette();
-  const [hovered, setHovered] = useState(false);
+function PersonalCard({ item }: { item: PersonalBit }) {
+  const { C, CD, CP } = usePalette();
+  const isTouch = useIsTouch();
+  const [active, setActive] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [imgError, setImgError] = useState(false);
+
+  // Dismiss popover when tapping outside on touch devices
+  useEffect(() => {
+    if (!isTouch || !active) return;
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setActive(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+    };
+  }, [isTouch, active]);
+
+  const handleMouseEnter = () => {
+    if (!isTouch) setActive(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (!isTouch) setActive(false);
+  };
+
+  const handleClick = () => {
+    if (isTouch) setActive((prev) => !prev);
+  };
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      ref={cardRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
       style={{
+        position: "relative",
         display: "flex",
         gap: 14,
         alignItems: "flex-start",
         padding: "16px 18px",
         borderRadius: 12,
-        background: hovered ? "white" : "transparent",
-        border: `1px solid ${hovered ? C + "26" : "transparent"}`,
-        boxShadow: hovered ? `0 8px 24px ${C}14` : "none",
+        background: active ? "white" : "transparent",
+        border: `1px solid ${active ? C + "26" : "transparent"}`,
+        boxShadow: active ? `0 8px 24px ${C}14` : "none",
         transition: "all 0.24s",
+        cursor: isTouch ? "pointer" : "default",
       }}
     >
+      <style>{`
+        @keyframes fsPopoverFadeIn {
+          from { opacity: 0; transform: translateY(-100%) scale(0.92); }
+          to   { opacity: 1; transform: translateY(-100%) scale(1); }
+        }
+      `}</style>
+
       <div
         style={{
           width: 38,
@@ -761,12 +814,88 @@ function PersonalCard({ item }: { item: (typeof PERSONAL_BITS)[0] }) {
       >
         {item.icon}
       </div>
-      <div>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 700, color: "#0a0a0a", marginBottom: 3 }}>
           {item.title}
         </div>
         <div style={{ fontSize: 13.4, color: "#6b7481", lineHeight: 1.65 }}>{item.body}</div>
       </div>
+
+      {/* Popover Bubble */}
+      {active && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "absolute",
+            right: 18,
+            top: -8,
+            transform: "translateY(-100%)",
+            transformOrigin: "bottom right",
+            zIndex: 100,
+            background: "white",
+            border: `1px solid ${C}33`,
+            borderRadius: 12,
+            padding: 10,
+            boxShadow: `0 12px 32px rgba(0,0,0,0.15), 0 2px 8px ${C}1f`,
+            width: 180,
+            pointerEvents: "auto",
+            animation: "fsPopoverFadeIn 0.22s cubic-bezier(0.34, 1.3, 0.64, 1)",
+          }}
+        >
+          {item.image && !imgError ? (
+            <div
+              style={{
+                width: "100%",
+                height: 110,
+                borderRadius: 8,
+                overflow: "hidden",
+                marginBottom: item.date ? 8 : 0,
+                background: CP,
+              }}
+            >
+              <img
+                src={item.image}
+                alt={item.title}
+                onError={() => setImgError(true)}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: 85,
+                borderRadius: 8,
+                background: `linear-gradient(135deg, ${CP}, #f1f5f9)`,
+                border: `1px dashed ${C}44`,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                marginBottom: item.date ? 8 : 0,
+              }}
+            >
+              <span style={{ fontSize: 20, opacity: 0.7 }}>📷</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: CD }}>No photo yet</span>
+            </div>
+          )}
+
+          {item.date && (
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: C,
+                textAlign: "center",
+                letterSpacing: 0.5,
+              }}
+            >
+              {item.date}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
